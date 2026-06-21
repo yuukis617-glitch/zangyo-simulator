@@ -145,6 +145,542 @@ header{background:#1F3864;padding:14px 16px;position:sticky;top:0;z-index:10;dis
     <p class="card-title">対象者・設定</p>
     <div class="field" style="margin-bottom:12px">
       <label>氏名</label>
+      <input type="text" id="person-name" placeholder="例：ヒューマン太郎" oninput="calc()">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>担当者名</label>
+        <input type="text" id="staff-name" placeholder="例：清水" oninput="calc()">
+      </div>
+      <div class="field">
+        <label>最低賃金（円）</label>
+        <input type="number" id="min-wage" value="1226" oninput="calc()">
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field" style="margin-bottom:0">
+        <label>月間平均労働時間</label>
+        <input type="number" id="monthly-hours" value="173" oninput="calc()">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>割増率</label>
+        <input type="number" id="premium-rate" value="1.25" step="0.01" oninput="calc()">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">基本給</p>
+    <div class="field">
+      <label>基本給（円）</label>
+      <input type="number" id="base" placeholder="例：160000" oninput="calc()">
+    </div>
+    <div style="font-size:12px;color:#5A6478;text-align:right;margin-top:-8px" id="base-fmt"></div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">手当（計算基礎への算入を選択）</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:6px;margin-bottom:6px">
+      <span style="font-size:11px;color:#9AA3B2;padding:0 2px">手当名</span>
+      <span style="font-size:11px;color:#9AA3B2;padding:0 2px">金額（円）</span>
+      <span style="font-size:11px;color:#9AA3B2;padding:0 2px">算入</span>
+      <span></span>
+    </div>
+    <div id="allowances"></div>
+    <button class="add-btn" onclick="addAllowance()">＋ 手当を追加</button>
+  </div>
+
+  <div class="card">
+    <p class="card-title">固定残業　— どちらか一方を入力</p>
+    <div class="ot-grid">
+      <div class="field" style="margin-bottom:0">
+        <label>固定残業時間（時間）</label>
+        <input type="number" id="ot-hours" placeholder="例：34" oninput="onOtHoursInput()">
+      </div>
+      <div class="ot-divider">または</div>
+      <div class="field" style="margin-bottom:0">
+        <label>固定残業代（円）</label>
+        <input type="number" id="ot-amount" placeholder="例：55000" oninput="onOtAmountInput()">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">計算結果</p>
+    <div class="results">
+      <div class="metric"><div class="metric-label">時間単価</div><div class="metric-value" id="r-hourly">－</div></div>
+      <div class="metric"><div class="metric-label">割増単価</div><div class="metric-value" id="r-premium">－</div></div>
+    </div>
+    <div class="results">
+      <div class="metric"><div class="metric-label">固定残業代</div><div class="metric-value accent" id="r-ot-amount">－</div></div>
+      <div class="metric"><div class="metric-label">固定残業時間</div><div class="metric-value accent" id="r-ot-hours">－</div></div>
+    </div>
+    <div class="results">
+      <div class="metric" style="grid-column:span 2"><div class="metric-label">合計賃金</div><div class="metric-value" id="r-total">－</div></div>
+    </div>
+    <div class="formula-box" id="formula-box">賃金を入力してください</div>
+    <table class="calc-table">
+      <tr><td>計算基礎賃金</td><td id="r-calcbase">－</td></tr>
+    </table>
+    <div class="divider"></div>
+    <div class="check-row"><span>最低賃金（<span id="r-minlabel">1,226</span>円）</span><span class="badge" id="badge-min">－</span></div>
+    <div class="check-row"><span>時間外上限（45時間）</span><span class="badge" id="badge-hours">－</span></div>
+    <div class="check-row"><span>最低賃金との差</span><span style="font-size:13px;color:#5A6478" id="r-diff">－</span></div>
+  </div>
+
+  <div class="card">
+    <p class="card-title" style="margin-bottom:10px">計算履歴</p>
+    <div id="history-list"><p class="history-empty">履歴がありません</p></div>
+  </div>
+
+</div>
+<div class="footer">© ヒューマンネット社会保険労務士法人</div>
+<div id="pdf-preview"></div>
+
+<script>
+let aid=0, lastEdited='hours', state={}, history=[];
+
+const defaults=[
+  {name:'技術手当',amount:25000,taxable:true},
+  {name:'自転車手当',amount:15000,taxable:true},
+  {name:'住宅手当',amount:20000,taxable:true},
+];
+
+function addAllowance(name='',amount='',taxable=true){
+  const id='a'+(aid++);
+  const div=document.createElement('div');
+  div.className='allowance-row';
+  div.id=id;
+  div.innerHTML=`
+    <div class="field" style="margin-bottom:0">
+      <input type="text" placeholder="例：資格手当" value="${name}" oninput="calc()">
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <input type="number" placeholder="0" value="${amount}" oninput="calc()">
+    </div>
+    <select onchange="calc()" style="height:38px;border:1px solid #DDE2EA;border-radius:8px;font-size:12px;padding:0 6px;color:#1a1a2e;background:#FAFBFC;cursor:pointer">
+      <option value="1" ${taxable?'selected':''}>算入</option>
+      <option value="0" ${!taxable?'selected':''}>除外</option>
+    </select>
+    <button class="del-btn" onclick="removeAllowance('${id}')" title="削除">×</button>
+  `;
+  document.getElementById('allowances').appendChild(div);
+  calc();
+}
+
+function removeAllowance(id){document.getElementById(id).remove();calc();}
+
+function getAllowances(){
+  let total=0,parts=[],excluded=[];
+  document.querySelectorAll('#allowances .allowance-row').forEach(row=>{
+    const inputs=row.querySelectorAll('input');
+    const sel=row.querySelector('select');
+    const name=inputs[0].value||'手当';
+    const v=parseFloat(inputs[1].value)||0;
+    const inc=sel.value==='1';
+    if(v>0){
+      if(inc){total+=v;parts.push({name,v});}
+      else{excluded.push({name,v});}
+    }
+  });
+  return {total,parts,excluded};
+}
+
+function onOtHoursInput(){
+  lastEdited='hours';
+  document.getElementById('ot-hours').classList.add('active-input');
+  document.getElementById('ot-amount').classList.remove('active-input');
+  calc();
+}
+function onOtAmountInput(){
+  lastEdited='amount';
+  document.getElementById('ot-amount').classList.add('active-input');
+  document.getElementById('ot-hours').classList.remove('active-input');
+  calc();
+}
+
+function fmtNum(n){return Math.round(n).toLocaleString('ja-JP');}
+function fmt(n){return fmtNum(n)+'円';}
+
+function calc(){
+  const hours=parseFloat(document.getElementById('monthly-hours').value)||173;
+  const rate=parseFloat(document.getElementById('premium-rate').value)||1.25;
+  const minWage=parseFloat(document.getElementById('min-wage').value)||1226;
+  const base=parseFloat(document.getElementById('base').value)||0;
+  const {total:allowTotal,parts,excluded}=getAllowances();
+  const calcBase=base+allowTotal;
+  const hourly=calcBase/hours;
+  const premium=hourly*rate;
+
+  // 3桁区切り表示
+  const baseEl=document.getElementById('base');
+  const baseFmt=document.getElementById('base-fmt');
+  if(base>0) baseFmt.textContent=fmt(base);
+  else baseFmt.textContent='';
+
+  document.getElementById('r-hourly').textContent=fmtNum(Math.round(hourly*10)/10)+'円';
+  document.getElementById('r-premium').textContent=fmtNum(Math.round(premium*10)/10)+'円';
+  document.getElementById('r-calcbase').textContent=fmt(calcBase);
+  document.getElementById('r-minlabel').textContent=fmtNum(minWage);
+
+  let formulaParts=[fmtNum(base)+'円（基本給）'];
+  parts.forEach(p=>formulaParts.push(fmtNum(p.v)+'円（'+p.name+'）'));
+  const formulaText=formulaParts.join(' ＋ ')+' ＝ '+fmt(calcBase);
+  let excludedNote='';
+  if(excluded.length>0) excludedNote='<br><span style="color:#C0392B;font-size:12px">※ 算入除外：'+excluded.map(e=>e.name+'（'+fmtNum(e.v)+'円）').join('、')+'</span>';
+  document.getElementById('formula-box').innerHTML=formulaParts.join(' ＋ ')+' ＝ <span>'+fmt(calcBase)+'</span>'+excludedNote;
+
+  let otAmount,otHours,total;
+  if(lastEdited==='hours'){
+    otHours=parseFloat(document.getElementById('ot-hours').value)||0;
+    otAmount=premium*otHours;
+    document.getElementById('ot-amount').value=otAmount>0?Math.round(otAmount):'';
+    total=calcBase+otAmount;
+    document.getElementById('r-ot-hours').textContent=otHours+'時間';
+    document.getElementById('r-ot-amount').textContent=fmt(otAmount);
+  }else{
+    otAmount=parseFloat(document.getElementById('ot-amount').value)||0;
+    otHours=premium>0?otAmount/premium:0;
+    document.getElementById('ot-hours').value=otHours>0?Math.floor(otHours):'';
+    total=calcBase+otAmount;
+    document.getElementById('r-ot-hours').textContent=Math.floor(otHours)+'時間（切捨）';
+    document.getElementById('r-ot-amount').textContent=fmt(otAmount);
+  }
+  document.getElementById('r-total').textContent=fmt(total);
+
+  const minOk=hourly>=minWage;
+  const hOk=Math.floor(otHours)<=45;
+  const diff=Math.round(hourly-minWage);
+
+  document.getElementById('badge-min').textContent=minOk?'OK':'NG';
+  document.getElementById('badge-min').className='badge '+(minOk?'ok':'ng');
+  document.getElementById('badge-hours').textContent=hOk?'OK':'NG';
+  document.getElementById('badge-hours').className='badge '+(hOk?'ok':'ng');
+  document.getElementById('r-diff').textContent=(diff>=0?'+':'')+fmtNum(diff)+'円';
+
+  state={hours,rate,minWage,base,parts,excluded,calcBase,
+    hourly:Math.round(hourly*10)/10,
+    premium:Math.round(premium*10)/10,
+    otHours:lastEdited==='hours'?otHours:Math.floor(otHours),
+    otHoursLabel:lastEdited==='hours'?otHours+'時間':Math.floor(otHours)+'時間（切捨）',
+    otAmount:Math.round(otAmount),total:Math.round(total),
+    minOk,hOk,diff,formulaText,excludedNote,
+    name:document.getElementById('person-name').value||'',
+    staff:document.getElementById('staff-name').value||'',
+  };
+}
+
+function saveHistory(){
+  if(!state.calcBase){alert('先に数値を入力してください');return;}
+  const entry={...state, savedAt:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})};
+  history.unshift(entry);
+  if(history.length>10) history.pop();
+  renderHistory();
+}
+
+function renderHistory(){
+  const el=document.getElementById('history-list');
+  if(history.length===0){el.innerHTML='<p class="history-empty">履歴がありません</p>';return;}
+  el.innerHTML=history.map((h,i)=>`
+    <div class="history-item" onclick="loadHistory(${i})">
+      <div class="history-name">${h.name||'（氏名未入力）'}</div>
+      <div class="history-meta">${h.savedAt}　基本給 ${fmtNum(h.base)}円　固定残業代 ${fmtNum(h.otAmount)}円（${h.otHoursLabel}）　合計 ${fmtNum(h.total)}円</div>
+    </div>
+  `).join('');
+}
+
+function loadHistory(i){
+  const h=history[i];
+  document.getElementById('person-name').value=h.name;
+  document.getElementById('staff-name').value=h.staff;
+  document.getElementById('monthly-hours').value=h.hours;
+  document.getElementById('premium-rate').value=h.rate;
+  document.getElementById('min-wage').value=h.minWage;
+  document.getElementById('base').value=h.base;
+  document.getElementById('allowances').innerHTML='';
+  aid=0;
+  h.parts.forEach(p=>addAllowance(p.name,p.v,true));
+  h.excluded.forEach(p=>addAllowance(p.name,p.v,false));
+  if(h.otHoursLabel.includes('切捨')){
+    lastEdited='amount';
+    document.getElementById('ot-amount').value=h.otAmount;
+    document.getElementById('ot-amount').classList.add('active-input');
+    document.getElementById('ot-hours').classList.remove('active-input');
+  }else{
+    lastEdited='hours';
+    document.getElementById('ot-hours').value=h.otHours;
+    document.getElementById('ot-hours').classList.add('active-input');
+    document.getElementById('ot-amount').classList.remove('active-input');
+  }
+  calc();
+}
+
+function resetAll(){
+  if(!confirm('入力内容をすべてクリアしますか？')) return;
+  document.getElementById('person-name').value='';
+  document.getElementById('base').value='';
+  document.getElementById('ot-hours').value='';
+  document.getElementById('ot-amount').value='';
+  document.getElementById('ot-hours').classList.remove('active-input');
+  document.getElementById('ot-amount').classList.remove('active-input');
+  document.getElementById('allowances').innerHTML='';
+  aid=0;
+  lastEdited='hours';
+  defaults.forEach(a=>addAllowance(a.name,a.amount,a.taxable));
+  ['r-hourly','r-premium','r-ot-amount','r-ot-hours','r-total','r-calcbase','r-diff'].forEach(id=>{
+    document.getElementById(id).textContent='－';
+  });
+  document.getElementById('formula-box').textContent='賃金を入力してください';
+  document.getElementById('badge-min').textContent='－';
+  document.getElementById('badge-min').className='badge';
+  document.getElementById('badge-hours').textContent='－';
+  document.getElementById('badge-hours').className='badge';
+  document.getElementById('base-fmt').textContent='';
+  state={};
+}
+
+function printPDF(){
+  if(!state.calcBase){alert('先に数値を入力してください');return;}
+  const s=state;
+  const today=new Date();
+  const dateStr=today.getFullYear()+'年'+(today.getMonth()+1)+'月'+today.getDate()+'日';
+  const allowRows=s.parts.map(p=>`<tr><td class="lbl">${p.name}（算入）</td><td class="val">${fmtNum(p.v)}円</td></tr>`).join('');
+  const exclRows=s.excluded.map(p=>`<tr><td class="lbl" style="color:#C0392B">${p.name}（算入除外）</td><td class="val" style="color:#C0392B">${fmtNum(p.v)}円</td></tr>`).join('');
+
+  document.getElementById('pdf-preview').innerHTML=`
+    <div class="pdf-header">
+      <div class="pdf-header-left">
+        <h1>固定残業代　計算書</h1>
+        <p>ヒューマンネット社会保険労務士法人</p>
+        ${s.name?'<p style="margin-top:4px;font-size:10pt;color:#1a1a2e;font-weight:600">対象者：'+s.name+'</p>':''}
+      </div>
+      <div class="pdf-header-right">
+        <p>作成日：${dateStr}</p>
+        ${s.staff?'<p>担当：'+s.staff+'</p>':''}
+      </div>
+    </div>
+
+    <div class="pdf-section">
+      <p class="pdf-section-title">共通条件</p>
+      <table class="pdf-table">
+        <tr><td class="lbl">月間平均労働時間</td><td class="val">${s.hours}時間</td></tr>
+        <tr><td class="lbl">割増率</td><td class="val">${s.rate}</td></tr>
+        <tr><td class="lbl">最低賃金</td><td class="val">${fmtNum(s.minWage)}円</td></tr>
+      </table>
+    </div>
+
+    <div class="pdf-section">
+      <p class="pdf-section-title">賃金内訳</p>
+      <table class="pdf-table">
+        <tr><td class="lbl">基本給</td><td class="val">${fmtNum(s.base)}円</td></tr>
+        ${allowRows}${exclRows}
+        <tr class="hl"><td class="lbl">計算基礎賃金（合計）</td><td class="accent">${fmtNum(s.calcBase)}円</td></tr>
+      </table>
+    </div>
+
+    <div class="pdf-section">
+      <p class="pdf-section-title">計算根拠</p>
+      <div class="pdf-formula">${s.formulaText}</div>
+      <table class="pdf-table">
+        <tr><td class="lbl">時間単価</td><td class="val">${fmtNum(s.calcBase)}円 ÷ ${s.hours}時間 ＝ ${s.hourly}円</td></tr>
+        <tr><td class="lbl">割増賃金単価</td><td class="val">${s.hourly}円 × ${s.rate} ＝ ${s.premium}円</td></tr>
+      </table>
+    </div>
+
+    <div class="pdf-section">
+      <p class="pdf-section-title">固定残業代　計算結果</p>
+      <div class="pdf-result-grid">
+        <div class="pdf-metric"><div class="pdf-metric-label">時間単価</div><div class="pdf-metric-value">${s.hourly}円</div></div>
+        <div class="pdf-metric"><div class="pdf-metric-label">割増単価</div><div class="pdf-metric-value">${s.premium}円</div></div>
+        <div class="pdf-metric"><div class="pdf-metric-label">固定残業時間</div><div class="pdf-metric-value">${s.otHoursLabel}</div></div>
+        <div class="pdf-metric"><div class="pdf-metric-label">固定残業代</div><div class="pdf-metric-value">${fmtNum(s.otAmount)}円</div></div>
+      </div>
+      <table class="pdf-table">
+        <tr class="hl"><td class="lbl">合計賃金</td><td class="accent">${fmtNum(s.total)}円</td></tr>
+      </table>
+    </div>
+
+    <div class="pdf-section">
+      <p class="pdf-section-title">適法性確認</p>
+      <table class="pdf-check-table">
+        <tr>
+          <td>最低賃金（${fmtNum(s.minWage)}円）</td>
+          <td>時間単価 ${s.hourly}円　差額 ${s.diff>=0?'+':''}${s.diff}円</td>
+          <td style="text-align:right"><span class="${s.minOk?'pdf-badge-ok':'pdf-badge-ng'}">${s.minOk?'OK':'NG'}</span></td>
+        </tr>
+        <tr>
+          <td>時間外上限（45時間）</td>
+          <td>固定残業時間 ${s.otHours}時間</td>
+          <td style="text-align:right"><span class="${s.hOk?'pdf-badge-ok':'pdf-badge-ng'}">${s.hOk?'OK':'NG'}</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="pdf-footer">
+      <span>本書はヒューマンネット社会保険労務士法人の固定残業代シミュレーターにより作成</span>
+      <span>${dateStr}${s.staff?' 担当：'+s.staff:''}</span>
+    </div>
+  `;
+  window.print();
+}
+
+defaults.forEach(a=>addAllowance(a.name,a.amount,a.taxable));
+
+window.addEventListener('load',()=>{
+  setTimeout(()=>{
+    document.getElementById('splash').classList.add('hide');
+    setTimeout(()=>document.getElementById('splash').remove(),500);
+  },800);
+});
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="残業代計算">
+<meta name="theme-color" content="#1F3864">
+<title>固定残業代シミュレーター</title>
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAFM0lEQVR4nO3dza0bRxBF4ZahvfbaOASvBDgPp2A4KOfgSLxyEt4rAy8GaBB8Kno4Uz+3us+3tzSsOawmHym/Tz//+vsAfuSn6guALuKAiThgIg6YiAMm4oCJOGAiDpiIAybigIk4YCIOmD5XX0CNL1+/vfuffP/374grUbZFHBdSOPOHLJ/LsnG4BHH+r1gylNXiSGji9d+7UiWLxFHVxEcrVdI+Dp0snhwX1jqRrnHINvGk9SLpF0eXLJ50XCTNfgjWtIyp1/W32Ry9xvpCoxXSII5lsnjUIhH1Y2XJMibxR6e7OcQH50V5hYhujk3KmDQfr2IcmpOKJviotY4VwQFlUjtihDbH5mVMOnNQiUNnIgpEpiERh8gspCjMpD4OhSloKp9McRzlj19c7Xwq46CMMwqnVBYHZZxXNauaOCjjXSUTK4iDMq7Jn1t2HKGP8J+//oj7wxWuIbmP+reyXo67UtuHwjU4Sv1sJSh8wZtxXNIvv/3p/id/+fot7cOXvM2RVkZVK2lXkna4fMr5PxhHPJ7Xo4941r6QfzEJ+6Praw7Bo+SFXlc7ZWwO37VxftBpy6PqkqKXR/jmcD9Qzs835/laGGv0i4+uxwoSxMYRlLbO8ig/40KXR9fNodBHeRnRAuPgM5QccXOOiiOhjNrlIbU2gqbd9Vg5VPUhVUackDg4UPJFzLz35hgVy2OTtTEWiGPk9rFPGSMiDs6UKu6TX2FzjKzlsdXaGO5xFK6N6D5alOE7/0U2ByIsFUfc8mixNtx5xqHwUjSij15lON6FpTbHu87c9aZf4nKxYBxVT1+FteHLLQ6FM2XyOlx6HSiT171YcHMc7vfRtAxHy8aB+1aO487yYG0MrzikXnA8utbHAmW43JGVNwduWj+Od5fHAmvDy/pxjJgfmy5fxtgkDlyzSxy+T/Qd1sZwiUP2rcoTrzvapYz792WXzYEL9orj/pO+y9pwsVcc497d3aqMsWEcOG/HOK4tgN3WxtgzjvH+nd6wjKH2O94mtS/nJVyPYH+bbg6cQRwwEQdMxAETccBEHDARB0zEARNxwOQQR9ovDsJb7t8XNgdMop+tSP2qFMFPPXKwOWAiDpiIAyafOHjDosbljrA5YCIOmIgDJs/fK+v47yLVvkOawPGnKV4vAdkcMBEHTJ5x8IZWgeNdYHPARBwwOcfByVLLd/5sDpj842B5VHGfPJsDJuKAKSQOTpZ8ETPnO6R8h9QUdaywPDIFTTvwNQd95IibMy9IYYqNg+URLXTCbA6YwuNgecSJnm3G5qCPCAlT5ViBKSkOloevnHl6fvv8f3X5tT3i0p5pqccK++O+zBnymgOm7DhYHnckT69gc9DHNflzqzlW6ONdJRMre81BH+dVzaryBSl9nFE4peJ3K/TxWu186t/K0oelfDL1cQyBKQhSmIlEHENjFjpEpqESx5CZSDmdOWj904RjLtt+PqeTxUFoc0xqM8oh+KgV4xiSkwql+Xi1jpVHmxwxmlkcRDfHpDy7+8Qfne7mmJZcIeJZHBrEcVgmkRZZHNSPlSeNJvtDva6/zeaYmq6QXlkc+sVxmLMWr6RjE1PXOCbZRdI6i0P7OA46i2SBJqZF4piqKlmpiWm1OKbHuxUUypJBPFo2jkcf7+KFXJZP4aMt4vhowzt9QbMfgiETccBEHDARB0zEARNxwEQcMBEHTMQBE3HARBwwEQdMxAETccBEHDARB0zEARNxwEQcMBEHTMQBE3HARBwwEQdMxAETccBEHDARB0zEAdN/qLbNspTEqCkAAAAASUVORK5CYII=">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;background:#F4F6F9;color:#1a1a2e;min-height:100vh;font-size:15px}
+
+#splash{position:fixed;inset:0;background:#1F3864;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s}
+#splash.hide{opacity:0;pointer-events:none}
+#splash-icon{width:80px;height:80px;background:rgba(255,255,255,0.15);border-radius:20px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:40px}
+#splash h2{color:#fff;font-size:20px;font-weight:600;margin-bottom:6px}
+#splash p{color:rgba(255,255,255,0.55);font-size:13px}
+
+header{background:#1F3864;padding:14px 16px;position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.header-left h1{color:#fff;font-size:16px;font-weight:600}
+.header-left p{color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px}
+.header-btns{display:flex;gap:6px;flex-shrink:0}
+.hbtn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#fff;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s}
+.hbtn:hover{background:rgba(255,255,255,0.28)}
+.hbtn.reset{background:rgba(255,100,100,0.25);border-color:rgba(255,150,150,0.4)}
+
+.container{max-width:680px;margin:0 auto;padding:16px}
+.card{background:#fff;border-radius:12px;padding:18px;margin-bottom:12px;border:1px solid #E8ECF2}
+.card-title{font-size:12px;font-weight:600;color:#5A6478;margin-bottom:14px;letter-spacing:0.06em;text-transform:uppercase}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field:last-child{margin-bottom:0}
+.field label{font-size:12px;color:#5A6478;font-weight:500}
+.field input[type=number],.field input[type=text],.field select{width:100%;padding:9px 12px;border:1px solid #DDE2EA;border-radius:8px;font-size:15px;color:#1a1a2e;background:#FAFBFC;outline:none;transition:border-color .15s;font-family:inherit;appearance:none}
+.field input:focus,.field select:focus{border-color:#1F3864;background:#fff}
+.field input.active-input{border-color:#1F3864;background:#EEF3FB}
+
+.allowance-row{display:grid;grid-template-columns:1fr 1fr auto auto;gap:6px;align-items:end;margin-bottom:8px}
+.allowance-row input,.allowance-row select{width:100%}
+.del-btn{height:38px;padding:0 11px;border:1px solid #DDE2EA;border-radius:8px;background:#fff;color:#9AA3B2;cursor:pointer;font-size:17px;transition:all .15s;flex-shrink:0}
+.del-btn:hover{background:#FFF0F0;border-color:#F0BCBC;color:#C0392B}
+.add-btn{width:100%;padding:9px;margin-top:4px;font-size:13px;border:1.5px dashed #DDE2EA;border-radius:8px;background:none;color:#5A6478;cursor:pointer;transition:all .15s;font-family:inherit}
+.add-btn:hover{background:#F4F6F9}
+.tax-badge{font-size:11px;padding:2px 7px;border-radius:4px;white-space:nowrap;font-weight:600}
+.tax-in{background:#EAF5EC;color:#1E7E34}
+.tax-out{background:#FDE8E8;color:#C0392B}
+
+.ot-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative}
+.ot-divider{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid #DDE2EA;border-radius:20px;padding:3px 8px;font-size:11px;color:#5A6478;z-index:1;white-space:nowrap}
+
+.results{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.metric{background:#F4F6F9;border-radius:10px;padding:14px;text-align:center}
+.metric-label{font-size:11px;color:#5A6478;margin-bottom:5px;font-weight:500}
+.metric-value{font-size:20px;font-weight:700;color:#1a1a2e}
+.metric-value.accent{color:#1F3864}
+
+.calc-table{width:100%;border-collapse:collapse;margin-bottom:12px}
+.calc-table td{padding:7px 0;font-size:13px;border-bottom:1px solid #F0F2F6;color:#1a1a2e}
+.calc-table tr:last-child td{border-bottom:none}
+.calc-table td:first-child{color:#5A6478}
+.calc-table td:last-child{text-align:right;font-weight:500}
+
+.divider{border:none;border-top:1px solid #EEF0F5;margin:12px 0}
+.check-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #F0F2F6;font-size:13px;color:#1a1a2e}
+.check-row:last-child{border-bottom:none}
+.badge{font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px}
+.badge.ok{background:#EAF5EC;color:#1E7E34}
+.badge.ng{background:#FDE8E8;color:#C0392B}
+
+.formula-box{background:#F4F6F9;border-radius:8px;padding:10px 14px;font-size:13px;color:#3A4255;line-height:1.8;margin-bottom:12px}
+.formula-box span{color:#1F3864;font-weight:600}
+
+/* 履歴 */
+.history-item{background:#F4F6F9;border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer;border:1px solid transparent;transition:all .15s}
+.history-item:hover{border-color:#B0C4DE;background:#EEF3FB}
+.history-name{font-size:13px;font-weight:600;color:#1F3864;margin-bottom:3px}
+.history-meta{font-size:12px;color:#5A6478}
+.history-empty{font-size:13px;color:#9AA3B2;text-align:center;padding:12px 0}
+
+.footer{text-align:center;padding:20px;font-size:11px;color:#9AA3B2}
+
+/* PDF印刷 */
+#pdf-preview{display:none}
+@media print{
+  *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important }
+  body{ background:#fff; font-size:11pt }
+  header,.container,#splash,.footer,.hbtn,.add-btn,.del-btn{ display:none !important }
+  #pdf-preview{ display:block !important; padding:18mm 16mm; font-family:'Hiragino Sans','Noto Sans JP',sans-serif }
+  .pdf-header{ border-bottom:3px solid #1F3864; padding-bottom:10px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:flex-end }
+  .pdf-header h1{ font-size:17pt; font-weight:700; color:#1F3864; margin-bottom:3px }
+  .pdf-header-left p{ font-size:9pt; color:#666 }
+  .pdf-header-right{ font-size:9pt; color:#666; text-align:right }
+  .pdf-section{ margin-bottom:14px }
+  .pdf-section-title{ font-size:10pt; font-weight:700; color:#1F3864; border-left:4px solid #1F3864; padding-left:8px; margin-bottom:7px }
+  .pdf-table{ width:100%; border-collapse:collapse; font-size:10pt; margin-bottom:8px }
+  .pdf-table th{ background:#1F3864; color:#fff; padding:5px 10px; text-align:left; font-weight:600 }
+  .pdf-table td{ padding:5px 10px; border-bottom:1px solid #E0E0E0 }
+  .pdf-table td:last-child{ text-align:right }
+  .pdf-table tr:last-child td{ border-bottom:none }
+  .pdf-table .lbl{ color:#555 }
+  .pdf-table .val{ font-weight:600 }
+  .pdf-table .accent{ font-weight:700; color:#1F3864 }
+  .pdf-table tr.hl td{ background:#EEF3FB }
+  .pdf-result-grid{ display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:7px; margin-bottom:10px }
+  .pdf-metric{ background:#F4F6F9; border-radius:6px; padding:9px; text-align:center }
+  .pdf-metric-label{ font-size:8pt; color:#666; margin-bottom:2px }
+  .pdf-metric-value{ font-size:13pt; font-weight:700; color:#1F3864 }
+  .pdf-check-table{ width:100%; border-collapse:collapse; font-size:10pt }
+  .pdf-check-table td{ padding:5px 10px; border-bottom:1px solid #E0E0E0 }
+  .pdf-check-table tr:last-child td{ border-bottom:none }
+  .pdf-badge-ok{ background:#EAF5EC; color:#1E7E34; padding:2px 10px; border-radius:10px; font-weight:600; font-size:9pt }
+  .pdf-badge-ng{ background:#FDE8E8; color:#C0392B; padding:2px 10px; border-radius:10px; font-weight:600; font-size:9pt }
+  .pdf-formula{ background:#F4F6F9; border-radius:6px; padding:8px 12px; font-size:9pt; color:#333; line-height:1.8; margin-bottom:8px }
+  .pdf-footer{ margin-top:16px; border-top:1px solid #ccc; padding-top:7px; font-size:8pt; color:#999; display:flex; justify-content:space-between }
+}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div id="splash-icon">💴</div>
+  <h2>固定残業代シミュレーター</h2>
+  <p>ヒューマンネット社会保険労務士法人</p>
+</div>
+
+<header>
+  <div class="header-left">
+    <h1>固定残業代シミュレーター</h1>
+    <p>ヒューマンネット社会保険労務士法人</p>
+  </div>
+  <div class="header-btns">
+    <button class="hbtn reset" onclick="resetAll()">リセット</button>
+    <button class="hbtn" onclick="saveHistory()">履歴保存</button>
+    <button class="hbtn" onclick="printPDF()">📄 PDF</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <p class="card-title">対象者・設定</p>
+    <div class="field" style="margin-bottom:12px">
+      <label>氏名</label>
       <input type="text" id="person-name" placeholder="例：田上 佑香" oninput="calc()">
     </div>
     <div class="grid2">
