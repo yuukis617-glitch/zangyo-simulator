@@ -159,6 +159,7 @@ header,.container,.footer,.hbtn,.add-btn,.del-btn{ display:none !important }
 .pdf-badge-ok{ background:#EAF5EC; color:#1E7E34; padding:2px 10px; border-radius:10px; font-weight:600; font-size:9pt }
 .pdf-badge-ng{ background:#FDE8E8; color:#C0392B; padding:2px 10px; border-radius:10px; font-weight:600; font-size:9pt }
 .pdf-footer{ margin-top:16px; border-top:1px solid #ccc; padding-top:7px; font-size:8pt; color:#999; display:flex; justify-content:space-between }
+.pdf-page-break{ page-break-before:always; padding-top:20px }
 .pdf-talk-section{ background:#FFFBF0; border:1px solid #FFD54F; border-radius:6px; padding:10px 14px }
 .pdf-talk-box{ font-size:10pt; color:#3A3A3A; line-height:1.8; margin-bottom:4px }
 }
@@ -611,20 +612,23 @@ el.classList.add('show');
 function showCompare(){
 if(!state.calcBase){ alert('先に数値を入力してください'); return; }
 const card = document.getElementById('compare-card');
+const isOpen = card.style.display !== 'none';
+if(isOpen){ card.style.display='none'; return; }
 card.style.display = 'block';
 card.scrollIntoView({behavior:'smooth',block:'nearest'});
 const patterns = [20,30,40,45];
 const {calcBase,hours,rate,minWage} = state;
 const hourly = calcBase/hours;
 const premium = hourly*rate;
+const minOk = hourly >= minWage; // 時間単価チェックはパターン共通
 let rows = patterns.map(h=>{
   const ot = Math.round(premium*h);
-  const minOk = hourly>=minWage;
-  const hOk = h<=45;
+  const ok = minOk && h<=45;
+  const isCurrent = h===state.otHours;
   return `<tr>
-    <td class="${h===state.otHours?'highlight':''}">${h}時間</td>
-    <td class="${h===state.otHours?'highlight':''}">${fmtNum(ot)}円</td>
-    <td class="${(minOk&&hOk)?'ok':'ng'} ${h===state.otHours?'highlight':''}">${minOk&&hOk?'OK':'NG'}</td>
+    <td class="${isCurrent?'highlight':''}">${h}時間${isCurrent?' ◀現在':''}</td>
+    <td class="${isCurrent?'highlight':''}">${fmtNum(ot)}円</td>
+    <td class="${ok?'ok':'ng'}${isCurrent?' highlight':''}">${ok?'✅ OK':'❌ NG'}</td>
   </tr>`;
 }).join('');
 document.getElementById('compare-table').innerHTML=`
@@ -894,8 +898,14 @@ ${(s.mode==='C'||s.mode==='D')?'<tr><td class="lbl">総額賃金</td><td class="
 <tr><td>時間外上限（45時間）</td><td>固定残業時間 ${s.otHours}時間</td><td style="text-align:right"><span class="${s.hOk?'pdf-badge-ok':'pdf-badge-ng'}">${s.hOk?'OK':'NG'}</span></td></tr>
 </table>
 </div>
+<div class="pdf-footer"><span>ヒューマンネット社会保険労務士法人 固定残業代シミュレーター</span><span>${dateStr}${s.staff?' 担当：'+s.staff:''}</span></div>
+<div class="pdf-page-break">
+<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #1F3864;display:flex;justify-content:space-between;align-items:flex-end">
+<div><div style="font-size:14pt;font-weight:700;color:#1F3864">📣 説明トーク例（担当者メモ）</div><div style="font-size:9pt;color:#888;margin-top:2px">※ このページは社内用です。お客様への配布には計算書のみをご使用ください。</div></div>
+<div style="font-size:9pt;color:#888">${s.name?s.name+' 様':''}</div>
+</div>
 <div class="pdf-section pdf-talk-section">
-<p class="pdf-section-title">📣 説明トーク例（担当者メモ）</p>
+<p class="pdf-section-title">📣 説明トーク例</p>
 <div class="pdf-talk-box">${talkMsg}</div>
 <div style="margin-top:8px;font-size:8.5pt;color:#666">
 <strong>補足ポイント：</strong><br>
@@ -904,7 +914,8 @@ ${(s.mode==='C'||s.mode==='D')?'<tr><td class="lbl">総額賃金</td><td class="
 ③ 雇用契約書・就業規則への明記と、従業員への丁寧な説明が不可欠です。
 </div>
 </div>
-<div class="pdf-footer"><span>ヒューマンネット社会保険労務士法人 固定残業代シミュレーター</span><span>${dateStr}${s.staff?' 担当：'+s.staff:''}</span></div>
+<div class="pdf-footer"><span>ヒューマンネット社会保険労務士法人 固定残業代シミュレーター（担当者用）</span><span>${dateStr}${s.staff?' 担当：'+s.staff:''}</span></div>
+</div>
 `;
 window.print();
 }
