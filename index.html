@@ -69,6 +69,66 @@ header{background:#1F3864;padding:14px 16px;position:sticky;top:0;z-index:10;dis
 .history-meta{font-size:12px;color:#5A6478}
 .history-empty{font-size:13px;color:#9AA3B2;text-align:center;padding:12px 0}
 .footer{text-align:center;padding:20px;font-size:11px;color:#9AA3B2}
+/* NG修正提案 */
+.fix-suggestion{background:#FFF8E1;border:1px solid #FFD54F;border-radius:10px;padding:12px 14px;margin-top:10px;font-size:13px;color:#5D4037;line-height:1.7;display:none}
+.fix-suggestion.show{display:block}
+.fix-suggestion strong{color:#C0392B}
+/* 比較モードボタン */
+.compare-btn{width:100%;padding:9px;margin-top:8px;font-size:13px;border:1.5px solid #1F3864;border-radius:8px;background:#EEF3FB;color:#1F3864;cursor:pointer;font-family:inherit;font-weight:600}
+.compare-btn:hover{background:#D9E8F8}
+/* 比較テーブル */
+.compare-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+.compare-table th{background:#1F3864;color:#fff;padding:7px 8px;text-align:center;font-weight:600;font-size:12px}
+.compare-table td{padding:7px 8px;border-bottom:1px solid #F0F2F6;text-align:center}
+.compare-table tr:nth-child(even) td{background:#FAFBFC}
+.compare-table td.ok{color:#1E7E34;font-weight:600}
+.compare-table td.ng{color:#C0392B;font-weight:600}
+.compare-table td.highlight{background:#EEF3FB;font-weight:700;color:#1F3864}
+/* 年収・社保カード */
+.salary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.salary-metric{background:#F4F6F9;border-radius:8px;padding:10px;text-align:center}
+.salary-metric-label{font-size:11px;color:#5A6478;margin-bottom:3px}
+.salary-metric-value{font-size:16px;font-weight:700;color:#1a1a2e}
+.salary-note{font-size:11px;color:#9AA3B2;text-align:center;margin-top:4px}
+/* チェックリスト */
+.check-list-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #F0F2F6;cursor:pointer}
+.check-list-item:last-child{border-bottom:none}
+.check-toggle{width:22px;height:22px;border-radius:50%;border:2px solid #DDE2EA;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .15s;margin-top:1px}
+.check-toggle.checked{background:#1E7E34;border-color:#1E7E34;color:#fff}
+.check-toggle.unchecked{background:#fff}
+.check-text{font-size:13px;color:#1a1a2e;line-height:1.5}
+.check-sub{font-size:11px;color:#5A6478;margin-top:2px}
+.checklist-result{border-radius:10px;padding:12px 14px;margin-top:10px;font-size:13px;font-weight:600;text-align:center}
+.checklist-result.all-ok{background:#EAF5EC;color:#1E7E34}
+.checklist-result.has-ng{background:#FDE8E8;color:#C0392B}
+/* 改定シミュレーション */
+.revision-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #F0F2F6;font-size:13px}
+.revision-row:last-child{border-bottom:none}
+.revision-tag{font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px}
+.tag-ok{background:#EAF5EC;color:#1E7E34}
+.tag-ng{background:#FDE8E8;color:#C0392B}
+.tag-warn{background:#FFF8E1;color:#B07800}
+/* モーダル */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5);overflow-y:auto;padding:20px}
+.modal-overlay.open{display:block}
+.modal-box{max-width:680px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.18)}
+.modal-head{background:#1F3864;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+.modal-head h2{color:#fff;font-size:15px;font-weight:700}
+.modal-close{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#fff;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.modal-body{padding:18px}
+/* カード折りたたみ */
+.card-toggle{background:none;border:none;cursor:pointer;font-size:12px;color:#5A6478;font-family:inherit;padding:0}
+/* スマホ対応 */
+@media(max-width:480px){
+  .mode-grid{grid-template-columns:1fr 1fr}
+  .grid2{grid-template-columns:1fr 1fr}
+  .results{grid-template-columns:1fr 1fr}
+  .salary-grid{grid-template-columns:1fr 1fr}
+  .header-btns{gap:4px}
+  .hbtn{padding:5px 9px;font-size:11px}
+  .container{padding:10px}
+  .card{padding:14px}
+}
 #pdf-preview{display:none}
 @media print{
 *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important }
@@ -99,6 +159,8 @@ header,.container,.footer,.hbtn,.add-btn,.del-btn{ display:none !important }
 .pdf-badge-ok{ background:#EAF5EC; color:#1E7E34; padding:2px 10px; border-radius:10px; font-weight:600; font-size:9pt }
 .pdf-badge-ng{ background:#FDE8E8; color:#C0392B; padding:2px 10px; border-radius:10px; font-weight:600; font-size:9pt }
 .pdf-footer{ margin-top:16px; border-top:1px solid #ccc; padding-top:7px; font-size:8pt; color:#999; display:flex; justify-content:space-between }
+.pdf-talk-section{ background:#FFFBF0; border:1px solid #FFD54F; border-radius:6px; padding:10px 14px }
+.pdf-talk-box{ font-size:10pt; color:#3A3A3A; line-height:1.8; margin-bottom:4px }
 }
 </style>
 </head>
@@ -156,19 +218,23 @@ header,.container,.footer,.hbtn,.add-btn,.del-btn{ display:none !important }
 <input type="text" id="staff-name" placeholder="例：清水">
 </div>
 </div>
+<div class="field">
+<label>会社名</label>
+<input type="text" id="company-name" placeholder="例：株式会社〇〇">
+</div>
 <div class="grid2">
 <div class="field" style="margin-bottom:0">
 <label>月間平均労働時間</label>
-<input type="number" id="monthly-hours" value="173" oninput="calc()">
+<input type="number" id="monthly-hours" value="173" inputmode="decimal" oninput="calc()">
 </div>
 <div class="field" style="margin-bottom:0">
 <label>割増率</label>
-<input type="number" id="premium-rate" value="1.25" step="0.01" oninput="calc()">
+<input type="number" id="premium-rate" value="1.25" step="0.01" inputmode="decimal" oninput="calc()">
 </div>
 </div>
 <div class="field" style="margin-bottom:0;margin-top:10px">
 <label>最低賃金（円）</label>
-<input type="number" id="min-wage" value="1226" oninput="calc()">
+<input type="number" id="min-wage" value="1226" inputmode="numeric" oninput="calc()">
 </div>
 </div>
 <div class="card">
@@ -176,14 +242,14 @@ header,.container,.footer,.hbtn,.add-btn,.del-btn{ display:none !important }
 <div id="field-total" style="display:none">
 <div class="field">
 <label>総額賃金（円）</label>
-<input type="number" id="total-wage" placeholder="例：300000" oninput="calc()">
+<input type="number" id="total-wage" placeholder="例：300000" inputmode="numeric" oninput="calc()">
 <div class="field-hint">基本給＋固定残業代＋すべての手当の合計</div>
 </div>
 </div>
 <div id="field-base">
 <div class="field">
 <label>基本給（円）</label>
-<input type="number" id="base" placeholder="例：160000" oninput="calc()">
+<input type="number" id="base" placeholder="例：160000" inputmode="numeric" oninput="calc()">
 <div class="field-hint" id="base-fmt"></div>
 </div>
 </div>
@@ -199,13 +265,13 @@ header,.container,.footer,.hbtn,.add-btn,.del-btn{ display:none !important }
 <div id="field-ot-hours" style="margin-top:12px">
 <div class="field" style="margin-bottom:0">
 <label>固定残業時間（時間）</label>
-<input type="number" id="ot-hours" placeholder="例：34" oninput="calc()">
+<input type="number" id="ot-hours" placeholder="例：34" inputmode="numeric" oninput="calc()">
 </div>
 </div>
 <div id="field-ot-amount" style="display:none;margin-top:12px">
 <div class="field" style="margin-bottom:0">
 <label>固定残業代（円）</label>
-<input type="number" id="ot-amount" placeholder="例：55000" oninput="calc()">
+<input type="number" id="ot-amount" placeholder="例：55000" inputmode="numeric" oninput="calc()">
 </div>
 </div>
 </div>
@@ -218,6 +284,61 @@ header,.container,.footer,.hbtn,.add-btn,.del-btn{ display:none !important }
 <div class="check-row"><span>最低賃金（<span id="r-minlabel">1,226</span>円）</span><span class="badge" id="badge-min">－</span></div>
 <div class="check-row"><span>時間外上限（45時間）</span><span class="badge" id="badge-hours">－</span></div>
 <div class="check-row"><span>最低賃金との差</span><span style="font-size:13px;color:#5A6478" id="r-diff">－</span></div>
+<!-- NG修正提案 -->
+<div class="fix-suggestion" id="fix-suggestion"></div>
+<!-- 比較モードボタン -->
+<button class="compare-btn" onclick="showCompare()">📊 残業時間パターン比較（20・30・40・45h）</button>
+</div>
+
+<!-- 比較テーブルカード -->
+<div class="card" id="compare-card" style="display:none">
+<p class="card-title">残業時間パターン比較</p>
+<div style="overflow-x:auto">
+<table class="compare-table" id="compare-table"></table>
+</div>
+</div>
+
+<!-- 年収・社保概算カード -->
+<div class="card" id="salary-card" style="display:none">
+<p class="card-title">年収・社会保険料 概算</p>
+<div style="margin-bottom:12px">
+<div class="field" style="margin-bottom:8px">
+<label>都道府県（協会けんぽ）</label>
+<select id="pref-select" onchange="calcSalary()" style="width:100%;padding:9px 12px;border:1px solid #DDE2EA;border-radius:8px;font-size:15px;color:#1a1a2e;background:#FAFBFC">
+<option value="13">東京都</option>
+<option value="01">北海道</option><option value="02">青森県</option><option value="03">岩手県</option><option value="04">宮城県</option><option value="05">秋田県</option><option value="06">山形県</option><option value="07">福島県</option><option value="08">茨城県</option><option value="09">栃木県</option><option value="10">群馬県</option><option value="11">埼玉県</option><option value="12">千葉県</option><option value="14">神奈川県</option><option value="15">新潟県</option><option value="16">富山県</option><option value="17">石川県</option><option value="18">福井県</option><option value="19">山梨県</option><option value="20">長野県</option><option value="21">岐阜県</option><option value="22">静岡県</option><option value="23">愛知県</option><option value="24">三重県</option><option value="25">滋賀県</option><option value="26">京都府</option><option value="27">大阪府</option><option value="28">兵庫県</option><option value="29">奈良県</option><option value="30">和歌山県</option><option value="31">鳥取県</option><option value="32">島根県</option><option value="33">岡山県</option><option value="34">広島県</option><option value="35">山口県</option><option value="36">徳島県</option><option value="37">香川県</option><option value="38">愛媛県</option><option value="39">高知県</option><option value="40">福岡県</option><option value="41">佐賀県</option><option value="42">長崎県</option><option value="43">熊本県</option><option value="44">大分県</option><option value="45">宮崎県</option><option value="46">鹿児島県</option><option value="47">沖縄県</option>
+</select>
+</div>
+<div class="field" style="margin-bottom:0">
+<label>年齢区分（介護保険）</label>
+<select id="age-select" onchange="calcSalary()" style="width:100%;padding:9px 12px;border:1px solid #DDE2EA;border-radius:8px;font-size:15px;color:#1a1a2e;background:#FAFBFC">
+<option value="0">39歳以下（介護保険なし）</option>
+<option value="1">40〜64歳（介護保険あり）</option>
+<option value="2">65歳以上（介護保険なし）</option>
+</select>
+</div>
+</div>
+<div class="salary-grid" id="salary-grid"></div>
+<p class="salary-note" id="salary-note"></p>
+</div>
+
+<!-- 固定残業代適法性チェックリスト -->
+<div class="card">
+<p class="card-title">固定残業代 適法性チェックリスト</p>
+<div id="check-list"></div>
+<div class="checklist-result" id="checklist-result" style="display:none"></div>
+</div>
+
+<!-- 最低賃金改定シミュレーション -->
+<div class="card">
+<p class="card-title">最低賃金 改定シミュレーション</p>
+<div style="margin-bottom:12px">
+<div class="field" style="margin-bottom:0">
+<label>改定後の最低賃金（円）で試算</label>
+<input type="number" id="future-wage" placeholder="例：1350" inputmode="numeric" oninput="calcRevision()">
+</div>
+</div>
+<div id="revision-result"><p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p></div>
 </div>
 <div class="card">
 <p class="card-title" style="margin-bottom:10px">計算履歴</p>
@@ -227,12 +348,49 @@ header,.container,.footer,.hbtn,.add-btn,.del-btn{ display:none !important }
 <div class="footer">© ヒューマンネット社会保険労務士法人</div>
 <div id="pdf-preview"></div>
 <script>
+// =========================================================
+// 基本設定・データ
+// =========================================================
 let aid=0, mode='A', history=[], state={};
 const defaults=[
 {name:'技術手当',amount:25000,taxable:true},
 {name:'自転車手当',amount:15000,taxable:true},
 {name:'住宅手当',amount:20000,taxable:true},
 ];
+
+// 令和8年度（2026年3月分〜）協会けんぽ都道府県別保険料率（出典：協会けんぽ公式）
+const KENPO_RATE = {
+'01':10.28,'02':9.85,'03':9.51,'04':10.10,'05':10.01,
+'06':9.75,'07':9.50,'08':9.52,'09':9.82,'10':9.68,
+'11':9.67,'12':9.73,'13':9.85,'14':9.92,'15':9.21,
+'16':9.59,'17':9.70,'18':9.71,'19':9.55,'20':9.63,
+'21':9.80,'22':9.61,'23':9.93,'24':9.77,'25':9.88,
+'26':9.89,'27':10.13,'28':10.12,'29':9.91,'30':10.06,
+'31':9.86,'32':9.94,'33':10.05,'34':9.78,'35':10.15,
+'36':10.24,'37':10.02,'38':9.98,'39':10.05,'40':10.11,
+'41':10.55,'42':10.06,'43':10.08,'44':10.08,'45':9.77,
+'46':10.13,'47':9.44
+};
+const KAIGO_RATE = 1.62;   // 介護保険料率（令和8年度：1.59%→1.62%に改定）
+const NENKIN_RATE = 18.30; // 厚生年金保険料率（固定）
+const KOYO_RATE = 0.60;    // 雇用保険（一般）本人負担率
+
+// 適法性チェックリスト項目
+const CHECKLIST = [
+  {id:'c1', label:'雇用契約書・労働条件通知書に固定残業代の金額・時間を明示している', sub:'「○○円（○時間分の時間外手当）」と記載'},
+  {id:'c2', label:'固定残業代と基本給が明確に区別されている', sub:'給与明細・雇用契約書で別項目として表記'},
+  {id:'c3', label:'実際の時間外労働が固定時間を超えた場合の差額清算規定がある', sub:'就業規則または雇用契約書に清算義務を明記'},
+  {id:'c4', label:'固定残業代が最低賃金を下回らない設計になっている', sub:'時間単価 ≥ 最低賃金（本シミュレーターで確認）'},
+  {id:'c5', label:'固定残業時間が36協定の上限（原則45時間）を超えていない', sub:'特別条項締結でも年720時間・月100時間未満'},
+  {id:'c6', label:'固定残業代の趣旨・内容を従業員に十分説明している', sub:'口頭説明だけでなく書面で残すことが望ましい'},
+  {id:'c7', label:'就業規則に固定残業代制度の根拠規定がある', sub:'「固定時間外手当として○円を支給する」等'},
+];
+let checkState = {};
+CHECKLIST.forEach(c=>{ checkState[c.id]=false; });
+
+// =========================================================
+// モード切替
+// =========================================================
 function setMode(m){
 mode=m;
 ['A','B','C','D'].forEach(x=>{
@@ -244,6 +402,10 @@ document.getElementById('field-ot-hours').style.display=(m==='A'||m==='C')?'bloc
 document.getElementById('field-ot-amount').style.display=(m==='B')?'block':'none';
 calc();
 }
+
+// =========================================================
+// 手当管理
+// =========================================================
 function addAllowance(name='',amount='',taxable=true){
 const id='a'+(aid++);
 const div=document.createElement('div');
@@ -251,7 +413,7 @@ div.className='allowance-row';
 div.id=id;
 div.innerHTML=`
 <div class="field" style="margin-bottom:0"><input type="text" placeholder="例：資格手当" value="${name}" oninput="calc()"></div>
-<div class="field" style="margin-bottom:0"><input type="number" placeholder="0" value="${amount}" oninput="calc()"></div>
+<div class="field" style="margin-bottom:0"><input type="number" placeholder="0" value="${amount}" inputmode="numeric" oninput="calc()"></div>
 <select onchange="calc()" style="height:38px;border:1px solid #DDE2EA;border-radius:8px;font-size:12px;padding:0 6px;color:#1a1a2e;background:#FAFBFC;cursor:pointer">
 <option value="1" ${taxable?'selected':''}>算入</option>
 <option value="0" ${!taxable?'selected':''}>除外</option>
@@ -277,11 +439,19 @@ else{excluded.push({name,v});}
 });
 return {total,parts,excluded};
 }
+
+// =========================================================
+// ユーティリティ
+// =========================================================
 function fmtNum(n){return Math.round(n).toLocaleString('ja-JP');}
 function fmt(n){return fmtNum(n)+'円';}
 function setMetric(id,label,value,cls=''){
 return `<div class="metric"><div class="metric-label">${label}</div><div class="metric-value ${cls}">${value}</div></div>`;
 }
+
+// =========================================================
+// メイン計算
+// =========================================================
 function calc(){
 const hours=parseFloat(document.getElementById('monthly-hours').value)||173;
 const rate=parseFloat(document.getElementById('premium-rate').value)||1.25;
@@ -342,7 +512,7 @@ results+=setMetric('','割増単価',fmtNum(Math.round(premium*10)/10)+'円');
 let fp=[fmtNum(Math.round(baseVal))+'円（基本給）'];
 parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+p.name+'）'));
 formulaText='総額 '+fmt(totalWage)+' から逆算<br>'+fp.join(' ＋ ')+' ＝ <span>'+fmt(Math.round(calcBase))+'（計算基礎）</span>';
-detailRows=`<tr><td>計算基礎賃金</td><td>${fmt(Math.round(calcBase))}</td></tr><tr><td>固定残業時間</td><td>${otHours}時間</td></tr><tr><td>総額確認</td><td>${fmt(Math.round(baseVal+otAmount+allowTotal+exclTotal))}</td></tr>`;
+detailRows=`<tr><td>計算基礎賃金</td><td>${fmt(Math.round(calcBase))}</td></tr><tr><td>固定残業時間</td><td>${otHours}時間</td></tr><tr><td>総額確認</td><td>${fmt(Math.round(baseVal+otAmount+allowTotal+excluded.reduce((a,b)=>a+b.v,0)))}</td></tr>`;
 }else if(mode==='D'){
 totalWage=parseFloat(document.getElementById('total-wage').value)||0;
 baseVal=parseFloat(document.getElementById('base').value)||0;
@@ -383,8 +553,214 @@ otHours:finalOtHours,otAmount:Math.round(otAmount||0),
 totalWage:Math.round(totalWage||0),minOk,hOk,diff,
 name:document.getElementById('person-name').value||'',
 staff:document.getElementById('staff-name').value||'',
+company:document.getElementById('company-name').value||'',
 };
+
+// NG修正提案
+renderFixSuggestion(minOk, hOk, hourly, minWage, finalOtHours, hours, rate, calcBase, baseVal, allowTotal, mode);
+
+// 年収・社保カードを更新
+if(document.getElementById('salary-card').style.display!=='none') calcSalary();
+
+// 改定シミュレーション更新
+calcRevision();
 }
+
+// =========================================================
+// NG修正提案
+// =========================================================
+function renderFixSuggestion(minOk, hOk, hourly, minWage, otHours, hours, rate, calcBase, baseVal, allowTotal, mode){
+const el = document.getElementById('fix-suggestion');
+if(!calcBase){ el.classList.remove('show'); return; }
+let msgs = [];
+
+if(!minOk){
+  // 最低賃金を満たすために必要な基本給を計算
+  const needHourly = minWage;
+  const needCalcBase = needHourly * hours;
+  const needBase = Math.ceil(needCalcBase - allowTotal);
+  const needBaseAdj = Math.ceil(needBase / 1000) * 1000; // 1000円単位切り上げ
+  const newCalcBase = needBaseAdj + allowTotal;
+  const newHourly = Math.round(newCalcBase / hours * 10) / 10;
+  const newPremium = Math.round(newHourly * rate * 10) / 10;
+  const newOtAmount = Math.round(newPremium * otHours);
+  const diffBase = needBaseAdj - baseVal;
+
+  msgs.push(`<strong>⚠ 最低賃金NG</strong>：時間単価 ${fmtNum(Math.round(hourly*10)/10)}円 → 最低賃金 ${fmtNum(minWage)}円 に ${fmtNum(Math.round(hourly*10)/10-minWage<0?minWage-Math.round(hourly*10)/10:0)}円 不足`);
+  if(mode!=='C'){
+    msgs.push(`📌 修正案：基本給を <strong>${fmtNum(needBaseAdj)}円</strong>（＋${fmtNum(diffBase)}円）に引き上げ`);
+    msgs.push(`　→ 新しい時間単価：<strong>${fmtNum(newHourly)}円</strong>　固定残業代：<strong>${fmt(newOtAmount)}</strong>（整合済）`);
+  }
+}
+
+if(!hOk){
+  msgs.push(`<strong>⚠ 時間外上限NG</strong>：固定残業 ${otHours}時間 → 45時間以内に収めてください`);
+  // 45時間に抑えた場合の残業代
+  const newOt45 = Math.round((calcBase/hours)*rate*45);
+  msgs.push(`📌 修正案：残業時間を45時間にすると固定残業代 <strong>${fmt(newOt45)}</strong>`);
+}
+
+if(msgs.length===0){ el.classList.remove('show'); return; }
+el.innerHTML = msgs.join('<br>');
+el.classList.add('show');
+}
+
+// =========================================================
+// 比較モード
+// =========================================================
+function showCompare(){
+if(!state.calcBase){ alert('先に数値を入力してください'); return; }
+const card = document.getElementById('compare-card');
+card.style.display = 'block';
+card.scrollIntoView({behavior:'smooth',block:'nearest'});
+const patterns = [20,30,40,45];
+const {calcBase,hours,rate,minWage} = state;
+const hourly = calcBase/hours;
+const premium = hourly*rate;
+let rows = patterns.map(h=>{
+  const ot = Math.round(premium*h);
+  const minOk = hourly>=minWage;
+  const hOk = h<=45;
+  return `<tr>
+    <td class="${h===state.otHours?'highlight':''}">${h}時間</td>
+    <td class="${h===state.otHours?'highlight':''}">${fmtNum(ot)}円</td>
+    <td class="${(minOk&&hOk)?'ok':'ng'} ${h===state.otHours?'highlight':''}">${minOk&&hOk?'OK':'NG'}</td>
+  </tr>`;
+}).join('');
+document.getElementById('compare-table').innerHTML=`
+<thead><tr><th>固定残業時間</th><th>固定残業代</th><th>適法判定</th></tr></thead>
+<tbody>${rows}</tbody>`;
+}
+
+// =========================================================
+// 年収・社保概算
+// =========================================================
+function showSalaryCard(){
+document.getElementById('salary-card').style.display='block';
+calcSalary();
+}
+function calcSalary(){
+if(!state.totalWage){ return; }
+const pref = document.getElementById('pref-select').value;
+const ageGroup = parseInt(document.getElementById('age-select').value);
+const monthlyTotal = state.totalWage;
+const annual = monthlyTotal * 12;
+// 標準報酬月額（簡易：総賃金をそのまま使用）
+const hyojun = monthlyTotal;
+const kenpoRate = KENPO_RATE[pref] || 9.91;
+const kenpo = Math.round(hyojun * kenpoRate / 100 / 2);
+const kaigo = ageGroup===1 ? Math.round(hyojun * KAIGO_RATE / 100 / 2) : 0;
+const nenkin = Math.round(Math.min(hyojun,650000) * NENKIN_RATE / 100 / 2);
+const koyo = Math.round(monthlyTotal * KOYO_RATE / 100);
+const totalShakai = kenpo+kaigo+nenkin+koyo;
+const monthlyTakeHome = monthlyTotal - totalShakai; // 所得税除く概算
+
+const g = document.getElementById('salary-grid');
+g.innerHTML = `
+<div class="salary-metric"><div class="salary-metric-label">想定年収（概算）</div><div class="salary-metric-value">${fmtNum(annual)}円</div></div>
+<div class="salary-metric"><div class="salary-metric-label">健康保険料（本人）</div><div class="salary-metric-value">${fmtNum(kenpo)}円/月</div></div>
+${kaigo>0?`<div class="salary-metric"><div class="salary-metric-label">介護保険料（本人）</div><div class="salary-metric-value">${fmtNum(kaigo)}円/月</div></div>`:''}
+<div class="salary-metric"><div class="salary-metric-label">厚生年金（本人）</div><div class="salary-metric-value">${fmtNum(nenkin)}円/月</div></div>
+<div class="salary-metric"><div class="salary-metric-label">雇用保険（本人）</div><div class="salary-metric-value">${fmtNum(koyo)}円/月</div></div>
+<div class="salary-metric"><div class="salary-metric-label">社会保険料合計</div><div class="salary-metric-value" style="color:#C0392B">${fmtNum(totalShakai)}円/月</div></div>
+`;
+document.getElementById('salary-note').textContent=`協会けんぽ令和8年度料率（${kenpoRate}%）で試算。介護保険料率1.62%（令和8年度）。標準報酬月額は実際の届出値と異なる場合があります。所得税・住民税は含みません。`;
+}
+
+// =========================================================
+// 適法性チェックリスト
+// =========================================================
+function renderChecklist(){
+const el=document.getElementById('check-list');
+el.innerHTML=CHECKLIST.map(c=>`
+<div class="check-list-item" onclick="toggleCheck('${c.id}')">
+<div class="check-toggle ${checkState[c.id]?'checked':'unchecked'}" id="ct-${c.id}">${checkState[c.id]?'✓':''}</div>
+<div>
+<div class="check-text">${c.label}</div>
+<div class="check-sub">${c.sub}</div>
+</div>
+</div>`).join('');
+updateCheckResult();
+}
+function toggleCheck(id){
+checkState[id]=!checkState[id];
+renderChecklist();
+}
+function updateCheckResult(){
+const total=CHECKLIST.length;
+const checked=Object.values(checkState).filter(Boolean).length;
+const el=document.getElementById('checklist-result');
+el.style.display='block';
+if(checked===total){
+  el.className='checklist-result all-ok';
+  el.textContent=`✅ 全${total}項目クリア！固定残業代の適法性が高い設計です`;
+}else{
+  el.className='checklist-result has-ng';
+  el.textContent=`⚠ ${checked}/${total}項目クリア　未確認項目は要対応`;
+}
+}
+
+// =========================================================
+// 改定シミュレーション
+// =========================================================
+function calcRevision(){
+const futureWage=parseFloat(document.getElementById('future-wage').value)||0;
+const el=document.getElementById('revision-result');
+if(!futureWage||!state.calcBase){
+  el.innerHTML='<p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p>';
+  return;
+}
+const currentHourly=state.hourly;
+const currentWage=state.minWage;
+const futureOk=currentHourly>=futureWage;
+const diff=Math.round(currentHourly-futureWage);
+
+// 改定後も適法にするための基本給
+const needCalcBase=futureWage*state.hours;
+const needBase=Math.ceil(needCalcBase-state.allowTotal);
+const needBaseAdj=Math.ceil(needBase/1000)*1000;
+const newCalcBase=needBaseAdj+state.allowTotal;
+const newHourly=Math.round(newCalcBase/state.hours*10)/10;
+const newOtAmount=Math.round(newHourly*state.rate*state.otHours);
+const baseUpAmount=needBaseAdj-state.baseVal;
+
+el.innerHTML=`
+<div class="revision-row">
+  <span>現在の最低賃金</span>
+  <span>${fmtNum(currentWage)}円</span>
+</div>
+<div class="revision-row">
+  <span>改定後の最低賃金</span>
+  <span style="font-weight:700">${fmtNum(futureWage)}円（+${fmtNum(futureWage-currentWage)}円）</span>
+</div>
+<div class="revision-row">
+  <span>現在の時間単価</span>
+  <span>${fmtNum(currentHourly)}円</span>
+</div>
+<div class="revision-row">
+  <span>改定後の適法判定</span>
+  <span class="revision-tag ${futureOk?'tag-ok':'tag-ng'}">${futureOk?'OK：そのまま適法':'NG：賃金改定が必要'}</span>
+</div>
+${!futureOk&&state.baseVal>0?`
+<div class="revision-row">
+  <span>差額</span>
+  <span style="color:#C0392B;font-weight:700">${fmtNum(diff)}円（${fmtNum(Math.abs(diff))}円不足）</span>
+</div>
+<div class="revision-row">
+  <span>📌 基本給の修正目安</span>
+  <span style="color:#1F3864;font-weight:700">${fmtNum(needBaseAdj)}円（+${fmtNum(baseUpAmount)}円）</span>
+</div>
+<div class="revision-row">
+  <span>修正後の固定残業代</span>
+  <span style="color:#1E7E34;font-weight:700">${fmt(newOtAmount)}</span>
+</div>`:''}
+${futureOk?`<div class="revision-row"><span>余裕（時間単価との差）</span><span style="color:#1E7E34;font-weight:700">＋${fmtNum(diff)}円</span></div>`:''}
+`;
+}
+
+// =========================================================
+// 履歴
+// =========================================================
 function saveHistory(){
 if(!state.calcBase){alert('先に数値を入力してください');return;}
 const entry={...state,savedAt:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})};
@@ -408,6 +784,7 @@ const h=history[i];
 setMode(h.mode);
 document.getElementById('person-name').value=h.name;
 document.getElementById('staff-name').value=h.staff;
+document.getElementById('company-name').value=h.company||'';
 document.getElementById('monthly-hours').value=h.hours;
 document.getElementById('premium-rate').value=h.rate;
 document.getElementById('min-wage').value=h.minWage;
@@ -421,13 +798,19 @@ h.parts.forEach(p=>addAllowance(p.name,p.v,true));
 h.excluded.forEach(p=>addAllowance(p.name,p.v,false));
 calc();
 }
+
+// =========================================================
+// リセット
+// =========================================================
 function resetAll(){
 if(!confirm('入力内容をすべてクリアしますか？')) return;
 document.getElementById('person-name').value='';
+document.getElementById('company-name').value='';
 document.getElementById('base').value='';
 document.getElementById('total-wage').value='';
 document.getElementById('ot-hours').value='';
 document.getElementById('ot-amount').value='';
+document.getElementById('future-wage').value='';
 document.getElementById('allowances').innerHTML='';
 aid=0;
 defaults.forEach(a=>addAllowance(a.name,a.amount,a.taxable));
@@ -440,8 +823,15 @@ document.getElementById('badge-hours').textContent='－';
 document.getElementById('badge-hours').className='badge';
 document.getElementById('r-diff').textContent='－';
 document.getElementById('base-fmt').textContent='';
+document.getElementById('fix-suggestion').classList.remove('show');
+document.getElementById('compare-card').style.display='none';
+document.getElementById('revision-result').innerHTML='<p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p>';
 state={};
 }
+
+// =========================================================
+// PDF出力（改良版：会社名・タイトル・トーク例付き）
+// =========================================================
 function printPDF(){
 if(!state.calcBase){alert('先に数値を入力してください');return;}
 const s=state;
@@ -450,12 +840,20 @@ const dateStr=today.getFullYear()+'年'+(today.getMonth()+1)+'月'+today.getDate
 const modeNames={'A':'順算（時間→金額）','B':'逆算（金額→時間）','C':'総額逆算①（総額＋時間→基本給・残業代）','D':'総額逆算②（総額＋基本給→残業代・時間）'};
 const allowRows=s.parts.map(p=>`<tr><td class="lbl">${p.name}（算入）</td><td class="val">${fmtNum(p.v)}円</td></tr>`).join('');
 const exclRows=s.excluded.map(p=>`<tr><td class="lbl" style="color:#C0392B">${p.name}（除外）</td><td class="val" style="color:#C0392B">${fmtNum(p.v)}円</td></tr>`).join('');
+
+// トーク例生成
+const talkOk = s.minOk && s.hOk;
+const talkMsg = talkOk
+  ? `今回の設計では、固定残業代を <strong>${fmtNum(s.otAmount)}円</strong>（${s.otHours}時間分）として設定しています。時間単価は <strong>${fmtNum(s.hourly)}円</strong> で、最低賃金（${fmtNum(s.minWage)}円）を <strong>+${fmtNum(s.diff)}円</strong> 上回っており、適法な設計です。万が一この時間を超えて残業が発生した場合は、超過分を別途支払う義務があります。`
+  : `⚠ 現在の設計に課題があります。${!s.minOk?'時間単価が最低賃金を下回っており、このままでは違法になります。基本給の引き上げが必要です。':''}${!s.hOk?'固定残業時間が45時間を超えており、36協定上限に抵触する可能性があります。':''}`;
+
 document.getElementById('pdf-preview').innerHTML=`
 <div class="pdf-header">
 <div class="pdf-header-left">
 <h1>固定残業代 計算書</h1>
 <p>ヒューマンネット社会保険労務士法人</p>
-${s.name?'<p style="margin-top:4px;font-size:10pt;font-weight:600">対象者：'+s.name+'</p>':''}
+${s.company?`<p style="margin-top:2px;font-size:9pt">会社名：${s.company}</p>`:''}
+${s.name?`<p style="margin-top:4px;font-size:10pt;font-weight:600">対象者：${s.name}</p>`:''}
 </div>
 <div class="pdf-header-right">
 <p>作成日：${dateStr}</p>
@@ -496,11 +894,41 @@ ${(s.mode==='C'||s.mode==='D')?'<tr><td class="lbl">総額賃金</td><td class="
 <tr><td>時間外上限（45時間）</td><td>固定残業時間 ${s.otHours}時間</td><td style="text-align:right"><span class="${s.hOk?'pdf-badge-ok':'pdf-badge-ng'}">${s.hOk?'OK':'NG'}</span></td></tr>
 </table>
 </div>
+<div class="pdf-section pdf-talk-section">
+<p class="pdf-section-title">📣 説明トーク例（担当者メモ）</p>
+<div class="pdf-talk-box">${talkMsg}</div>
+<div style="margin-top:8px;font-size:8.5pt;color:#666">
+<strong>補足ポイント：</strong><br>
+① 固定残業代は「○時間分の残業代をあらかじめ支払う制度」で、超過分は必ず追加払いが必要です。<br>
+② 最低賃金は毎年10月頃に改定されます。改定後も適法か定期確認が必要です。<br>
+③ 雇用契約書・就業規則への明記と、従業員への丁寧な説明が不可欠です。
+</div>
+</div>
 <div class="pdf-footer"><span>ヒューマンネット社会保険労務士法人 固定残業代シミュレーター</span><span>${dateStr}${s.staff?' 担当：'+s.staff:''}</span></div>
 `;
 window.print();
 }
+
+// =========================================================
+// 初期化
+// =========================================================
 defaults.forEach(a=>addAllowance(a.name,a.amount,a.taxable));
+renderChecklist();
+
+// 年収・社保カードは計算後に表示
+document.getElementById('salary-card').style.display='none';
+// 計算時に年収カードも自動表示
+const origCalc=calc;
+// 計算結果が出たら年収カードを表示
+function calcAndShow(){
+  calc();
+  if(state.calcBase) showSalaryCard();
+}
+// inputイベントを全入力フィールドに再割り当て
+['monthly-hours','premium-rate','min-wage','base','total-wage','ot-hours','ot-amount'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener('input', ()=>{ calc(); if(state.calcBase) showSalaryCard(); });
+});
 </script>
 </body>
 </html>
