@@ -128,6 +128,7 @@ header{background:#1F3864;padding:14px 16px;position:sticky;top:0;z-index:10;dis
   .hbtn{padding:5px 9px;font-size:11px}
   .container{padding:10px}
   .card{padding:14px}
+  .hide-sp{display:none}
 }
 #pdf-preview{display:none}
 @media print{
@@ -289,6 +290,7 @@ header,.container,.footer,.hbtn,.add-btn,.del-btn{ display:none !important }
 <div class="fix-suggestion" id="fix-suggestion"></div>
 <!-- 比較モードボタン -->
 <button class="compare-btn" onclick="showCompare()">📊 残業時間パターン比較（20・30・40・45h）</button>
+<button class="compare-btn" onclick="toggleSalaryCard()">💴 年収・社会保険料 概算を見る</button>
 </div>
 
 <!-- 比較テーブルカード -->
@@ -407,7 +409,7 @@ calc();
 // =========================================================
 // 手当管理
 // =========================================================
-function addAllowance(name='',amount='',taxable=true){
+function addAllowance(name='',amount='',taxable=true,skipCalc=false){
 const id='a'+(aid++);
 const div=document.createElement('div');
 div.className='allowance-row';
@@ -422,7 +424,7 @@ div.innerHTML=`
 <button class="del-btn" onclick="removeAllowance('${id}')" title="削除">×</button>
 `;
 document.getElementById('allowances').appendChild(div);
-calc();
+if(!skipCalc) calc();
 }
 function removeAllowance(id){document.getElementById(id).remove();calc();}
 function getAllowances(){
@@ -586,8 +588,8 @@ company:document.getElementById('company-name').value||'',
 // NG修正提案
 renderFixSuggestion(minOk, hOk, hourly, minWage, finalOtHours, hours, rate, calcBase, baseVal, allowTotal, mode);
 
-// 年収・社保カードを更新（calcBaseがあれば自動表示）
-if(state.calcBase){ showSalaryCard(); } else { document.getElementById('salary-card').style.display='none'; }
+// 年収・社保カードはすでに表示中のときだけ更新（自動表示しない）
+if(document.getElementById('salary-card').style.display!=='none') calcSalary();
 
 // 改定シミュレーション更新
 calcRevision();
@@ -641,13 +643,16 @@ const card = document.getElementById('compare-card');
 const isOpen = card.style.display !== 'none';
 if(isOpen){ card.style.display='none'; return; }
 card.style.display = 'block';
-card.scrollIntoView({behavior:'smooth',block:'nearest'});
+renderCompareTable();
+setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'nearest'}), 50);
+}
+
+function renderCompareTable(){
 const fixedPatterns = [20,30,40,45];
 const {calcBase,hours,rate,minWage,otHours:currentOtHours} = state;
 const hourly = calcBase/hours;
 const premium = hourly*rate;
 const minOk = hourly >= minWage;
-// 現在の時間数が固定パターン外なら追加して昇順ソート
 const patterns = fixedPatterns.includes(currentOtHours)
   ? fixedPatterns
   : [...fixedPatterns, currentOtHours].sort((a,b)=>a-b);
@@ -655,20 +660,46 @@ let rows = patterns.map(h=>{
   const ot = Math.round(premium*h);
   const ok = minOk && h<=45;
   const isCurrent = h===currentOtHours;
-  return `<tr>
+  return `<tr onclick="applyOtHours(${h})" style="cursor:pointer" title="${h}時間で反映する">
     <td class="${isCurrent?'highlight':''}">${h}時間${isCurrent?' ◀現在':''}</td>
     <td class="${isCurrent?'highlight':''}">${fmtNum(ot)}円</td>
     <td class="${ok?'ok':'ng'}${isCurrent?' highlight':''}">${ok?'✅ OK':'❌ NG'}</td>
+    <td style="font-size:11px;color:#9AA3B2;text-align:center" class="hide-sp">${isCurrent?'―':'適用 →'}</td>
   </tr>`;
 }).join('');
 document.getElementById('compare-table').innerHTML=`
-<thead><tr><th>固定残業時間</th><th>固定残業代</th><th>適法判定</th></tr></thead>
+<thead><tr><th>固定残業時間</th><th>固定残業代</th><th>適法判定</th><th class="hide-sp" style="font-size:11px">反映</th></tr></thead>
 <tbody>${rows}</tbody>`;
+}
+
+function applyOtHours(h){
+if(mode==='A'||mode==='C'){
+  document.getElementById('ot-hours').value=h;
+} else if(mode==='B'){
+  // premiumを丸めずに再計算して誤差を防ぐ
+  const {calcBase,hours,rate} = state;
+  const rawPremium = (calcBase/hours)*rate;
+  const newOtAmount = Math.round(rawPremium * h);
+  document.getElementById('ot-amount').value = newOtAmount;
+} else if(mode==='D'){
+  alert('モード②（総額逆算②）では残業時間は逆算値です。\n総額または基本給を変更して調整してください。');
+  return;
+}
+calc();
+renderCompareTable();
+setTimeout(()=>document.getElementById('compare-card').scrollIntoView({behavior:'smooth',block:'nearest'}), 50);
 }
 
 // =========================================================
 // 年収・社保概算
 // =========================================================
+function toggleSalaryCard(){
+if(!state.calcBase){ alert('先に数値を入力してください'); return; }
+const card = document.getElementById('salary-card');
+if(card.style.display!=='none'){ card.style.display='none'; return; }
+showSalaryCard();
+card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 function showSalaryCard(){
 document.getElementById('salary-card').style.display='block';
 calcSalary();
@@ -813,8 +844,8 @@ if(h.mode==='A'||h.mode==='C') document.getElementById('ot-hours').value=h.otHou
 if(h.mode==='B') document.getElementById('ot-amount').value=h.otAmount;
 document.getElementById('allowances').innerHTML='';
 aid=0;
-h.parts.forEach(p=>addAllowance(p.name,p.v,true));
-h.excluded.forEach(p=>addAllowance(p.name,p.v,false));
+h.parts.forEach(p=>addAllowance(p.name,p.v,true,true));
+h.excluded.forEach(p=>addAllowance(p.name,p.v,false,true));
 document.getElementById('compare-card').style.display='none';
 calc();
 }
@@ -834,7 +865,7 @@ document.getElementById('ot-amount').value='';
 document.getElementById('future-wage').value='';
 document.getElementById('allowances').innerHTML='';
 aid=0;
-defaults.forEach(a=>addAllowance(a.name,a.amount,a.taxable));
+defaults.forEach(a=>addAllowance(a.name,a.amount,a.taxable,true));
 document.getElementById('results-main').innerHTML='';
 document.getElementById('formula-box').textContent='計算モードを選んで数値を入力してください';
 document.getElementById('calc-detail').innerHTML='';
@@ -848,7 +879,6 @@ document.getElementById('fix-suggestion').classList.remove('show');
 document.getElementById('compare-card').style.display='none';
 document.getElementById('salary-card').style.display='none';
 document.getElementById('revision-result').innerHTML='<p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p>';
-state={};
 }
 
 // =========================================================
@@ -944,7 +974,7 @@ window.print();
 // =========================================================
 // 初期化
 // =========================================================
-defaults.forEach(a=>addAllowance(a.name,a.amount,a.taxable));
+defaults.forEach(a=>addAllowance(a.name,a.amount,a.taxable,true));
 renderChecklist();
 
 // 年収・社保カードは計算後に表示（calc()内で自動呼び出し済み）
