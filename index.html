@@ -538,6 +538,32 @@ let excludedNote='';
 if(excluded.length>0) excludedNote='<br><span style="color:#C0392B;font-size:12px">※ 算入除外：'+excluded.map(e=>e.name+'（'+fmtNum(e.v)+'円）').join('、')+'</span>';
 document.getElementById('formula-box').innerHTML=formulaText+excludedNote;
 document.getElementById('calc-detail').innerHTML=detailRows;
+
+// 入力が不十分でcalcBaseが0のときはバッジをリセットして終了
+if(!calcBase){
+  ['badge-min','badge-hours'].forEach(id=>{
+    document.getElementById(id).textContent='－';
+    document.getElementById(id).className='badge';
+  });
+  document.getElementById('r-diff').textContent='－';
+  document.getElementById('fix-suggestion').classList.remove('show');
+  document.getElementById('salary-card').style.display='none';
+  state={};
+  return;
+}
+
+// モードC: baseValが負（手当合計 > 計算基礎）の警告
+if(mode==='C' && baseVal<0){
+  document.getElementById('fix-suggestion').innerHTML='<strong>⚠ 入力エラー</strong>：手当合計が計算基礎賃金を上回っています。総額を増やすか手当を見直してください。';
+  document.getElementById('fix-suggestion').classList.add('show');
+  return;
+}
+// モードD: otAmountが負（基本給＋手当 > 総額）の警告
+if(mode==='D' && otAmount<0){
+  document.getElementById('fix-suggestion').innerHTML='<strong>⚠ 入力エラー</strong>：基本給＋手当が総額を上回っています。総額を増やすか基本給を見直してください。';
+  document.getElementById('fix-suggestion').classList.add('show');
+  return;
+}
 const minOk=hourly>=minWage;
 const finalOtHours=(mode==='A'||mode==='C')?otHours:Math.floor(otHours);
 const hOk=finalOtHours<=45;
@@ -560,8 +586,8 @@ company:document.getElementById('company-name').value||'',
 // NG修正提案
 renderFixSuggestion(minOk, hOk, hourly, minWage, finalOtHours, hours, rate, calcBase, baseVal, allowTotal, mode);
 
-// 年収・社保カードを更新
-if(document.getElementById('salary-card').style.display!=='none') calcSalary();
+// 年収・社保カードを更新（calcBaseがあれば自動表示）
+if(state.calcBase){ showSalaryCard(); } else { document.getElementById('salary-card').style.display='none'; }
 
 // 改定シミュレーション更新
 calcRevision();
@@ -648,10 +674,10 @@ document.getElementById('salary-card').style.display='block';
 calcSalary();
 }
 function calcSalary(){
-if(!state.totalWage){ return; }
+if(!state.totalWage && !state.calcBase){ return; }
 const pref = document.getElementById('pref-select').value;
 const ageGroup = parseInt(document.getElementById('age-select').value);
-const monthlyTotal = state.totalWage;
+const monthlyTotal = state.totalWage || state.calcBase;
 const annual = monthlyTotal * 12;
 // 標準報酬月額（簡易：総賃金をそのまま使用）
 const hyojun = monthlyTotal;
@@ -698,6 +724,8 @@ function updateCheckResult(){
 const total=CHECKLIST.length;
 const checked=Object.values(checkState).filter(Boolean).length;
 const el=document.getElementById('checklist-result');
+// 一度もタップされていない場合は結果を表示しない
+if(checked===0){ el.style.display='none'; return; }
 el.style.display='block';
 if(checked===total){
   el.className='checklist-result all-ok';
@@ -787,6 +815,7 @@ document.getElementById('allowances').innerHTML='';
 aid=0;
 h.parts.forEach(p=>addAllowance(p.name,p.v,true));
 h.excluded.forEach(p=>addAllowance(p.name,p.v,false));
+document.getElementById('compare-card').style.display='none';
 calc();
 }
 
@@ -796,6 +825,7 @@ calc();
 function resetAll(){
 if(!confirm('入力内容をすべてクリアしますか？')) return;
 document.getElementById('person-name').value='';
+document.getElementById('staff-name').value='';
 document.getElementById('company-name').value='';
 document.getElementById('base').value='';
 document.getElementById('total-wage').value='';
@@ -816,6 +846,7 @@ document.getElementById('r-diff').textContent='－';
 document.getElementById('base-fmt').textContent='';
 document.getElementById('fix-suggestion').classList.remove('show');
 document.getElementById('compare-card').style.display='none';
+document.getElementById('salary-card').style.display='none';
 document.getElementById('revision-result').innerHTML='<p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p>';
 state={};
 }
@@ -834,7 +865,10 @@ const exclRows=s.excluded.map(p=>`<tr><td class="lbl" style="color:#C0392B">${p.
 
 // トーク例生成
 const talkOk = s.minOk && s.hOk;
-const talkMsg = talkOk
+const hasNegative = s.baseVal < 0 || s.otAmount < 0;
+const talkMsg = hasNegative
+  ? `⚠ 入力値に問題があります（基本給または固定残業代が負の値）。数値を見直してください。`
+  : talkOk
   ? `今回の設計では、固定残業代を <strong>${fmtNum(s.otAmount)}円</strong>（${s.otHours}時間分）として設定しています。時間単価は <strong>${fmtNum(s.hourly)}円</strong> で、最低賃金（${fmtNum(s.minWage)}円）を <strong>+${fmtNum(s.diff)}円</strong> 上回っており、適法な設計です。万が一この時間を超えて残業が発生した場合は、超過分を別途支払う義務があります。`
   : `⚠ 現在の設計に課題があります。${!s.minOk?'時間単価が最低賃金を下回っており、このままでは違法になります。基本給の引き上げが必要です。':''}${!s.hOk?'固定残業時間が45時間を超えており、36協定上限に抵触する可能性があります。':''}`;
 
@@ -913,20 +947,8 @@ window.print();
 defaults.forEach(a=>addAllowance(a.name,a.amount,a.taxable));
 renderChecklist();
 
-// 年収・社保カードは計算後に表示
+// 年収・社保カードは計算後に表示（calc()内で自動呼び出し済み）
 document.getElementById('salary-card').style.display='none';
-// 計算時に年収カードも自動表示
-const origCalc=calc;
-// 計算結果が出たら年収カードを表示
-function calcAndShow(){
-  calc();
-  if(state.calcBase) showSalaryCard();
-}
-// inputイベントを全入力フィールドに再割り当て
-['monthly-hours','premium-rate','min-wage','base','total-wage','ot-hours','ot-amount'].forEach(id=>{
-  const el=document.getElementById(id);
-  if(el) el.addEventListener('input', ()=>{ calc(); if(state.calcBase) showSalaryCard(); });
-});
 </script>
 </body>
 </html>
