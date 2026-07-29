@@ -73,6 +73,16 @@ header{background:#1F3864;padding:14px 16px;position:sticky;top:0;z-index:10;dis
 .fix-suggestion{background:#FFF8E1;border:1px solid #FFD54F;border-radius:10px;padding:12px 14px;margin-top:10px;font-size:13px;color:#5D4037;line-height:1.7;display:none}
 .fix-suggestion.show{display:block}
 .fix-suggestion strong{color:#C0392B}
+.adjust-box{background:#F4F6F9;border:1px solid #DDE2EA;border-radius:10px;padding:12px 14px;margin-top:10px;display:none}
+.adjust-box.show{display:block}
+.adjust-box-title{font-size:11px;font-weight:600;color:#5A6478;margin-bottom:8px;letter-spacing:0.05em}
+.adjust-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.adjust-row input{flex:1;padding:8px 10px;border:1px solid #DDE2EA;border-radius:8px;font-size:15px;color:#1a1a2e;background:#fff;font-family:inherit;outline:none;transition:border-color .15s}
+.adjust-row input:focus{border-color:#1F3864}
+.adjust-row span{font-size:13px;color:#5A6478;white-space:nowrap}
+.adjust-results{font-size:13px;line-height:1.9;color:#1a1a2e}
+.adjust-results .ar-ok{color:#1E7E34;font-weight:600}
+.adjust-results .ar-ng{color:#C0392B;font-weight:600}
 /* 比較モードボタン */
 .compare-btn{width:100%;padding:9px;margin-top:8px;font-size:13px;border:1.5px solid #1F3864;border-radius:8px;background:#EEF3FB;color:#1F3864;cursor:pointer;font-family:inherit;font-weight:600}
 .compare-btn:hover{background:#D9E8F8}
@@ -288,6 +298,15 @@ header,.container,.footer,.hbtn,.add-btn,.del-btn{ display:none !important }
 <div class="check-row"><span>最低賃金との差</span><span style="font-size:13px;color:#5A6478" id="r-diff">－</span></div>
 <!-- NG修正提案 -->
 <div class="fix-suggestion" id="fix-suggestion"></div>
+<!-- 基本給調整欄 -->
+<div class="adjust-box" id="adjust-box">
+<div class="adjust-box-title">🔧 基本給を調整して再計算</div>
+<div class="adjust-row">
+  <input type="number" id="adjust-base" inputmode="numeric" placeholder="例：223800" oninput="calcAdjust()">
+  <span>円</span>
+</div>
+<div class="adjust-results" id="adjust-results"></div>
+</div>
 <!-- 比較モードボタン -->
 <button class="compare-btn" onclick="showCompare()">📊 残業時間パターン比較（20・30・40・45h）</button>
 <button class="compare-btn" onclick="toggleSalaryCard()">💴 年収・社会保険料 概算を見る</button>
@@ -588,6 +607,12 @@ company:document.getElementById('company-name').value||'',
 // NG修正提案
 renderFixSuggestion(minOk, hOk, hourly, minWage, finalOtHours, hours, rate, calcBase, baseVal, allowTotal, mode);
 
+// 基本給調整欄を表示・リセット
+const adjBox = document.getElementById('adjust-box');
+adjBox.classList.add('show');
+document.getElementById('adjust-base').value = '';
+document.getElementById('adjust-results').innerHTML = '<span style="color:#9AA3B2;font-size:12px">調整後の基本給を入力すると再計算します</span>';
+
 // 年収・社保カードはすでに表示中のときだけ更新（自動表示しない）
 if(document.getElementById('salary-card').style.display!=='none') calcSalary();
 
@@ -635,8 +660,51 @@ el.classList.add('show');
 }
 
 // =========================================================
-// 比較モード
+// 基本給調整再計算
 // =========================================================
+function calcAdjust(){
+const adjBase = parseFloat(document.getElementById('adjust-base').value);
+const el = document.getElementById('adjust-results');
+if(!adjBase || !state.calcBase){
+  el.innerHTML = '<span style="color:#9AA3B2;font-size:12px">調整後の基本給を入力すると再計算します</span>';
+  return;
+}
+const {allowTotal, hours, rate, minWage, otHours, mode, totalWage, excluded} = state;
+const newCalcBase = adjBase + allowTotal;
+const newHourly = newCalcBase / hours;
+const newPremium = newHourly * rate;
+
+let newOtAmount, newOtHours, newTotal;
+if(mode === 'B'){
+  // モードB: 残業代固定→時間数が変わる
+  newOtAmount = state.otAmount;
+  newOtHours = Math.floor(newOtAmount / newPremium);
+  newTotal = newCalcBase + newOtAmount + excluded.reduce((a,b)=>a+b.v,0);
+} else if(mode === 'D'){
+  // モードD: 総額固定→残業代が変わる
+  const exclTotal = excluded.reduce((a,b)=>a+b.v,0);
+  newOtAmount = totalWage - newCalcBase - exclTotal;
+  newOtHours = Math.floor(newOtAmount / newPremium);
+  newTotal = totalWage;
+} else {
+  // モードA・C: 残業時間固定→残業代が変わる
+  newOtAmount = Math.round(newPremium * otHours);
+  newOtHours = otHours;
+  newTotal = newCalcBase + newOtAmount + excluded.reduce((a,b)=>a+b.v,0);
+}
+
+const newHourlyR = Math.round(newHourly * 10) / 10;
+const minOk = newHourly >= minWage;
+const hOk = newOtHours <= 45;
+const diff = Math.round(newHourly - minWage);
+
+el.innerHTML = `
+<div>時間単価：<strong>${fmtNum(newHourlyR)}円</strong>　<span class="${minOk?'ar-ok':'ar-ng'}">${minOk?'✅ 最低賃金OK':'❌ 最低賃金NG（'+fmtNum(Math.abs(diff))+'円不足）'}</span></div>
+<div>割増単価：<strong>${fmtNum(Math.round(newPremium*10)/10)}円</strong></div>
+<div>固定残業代：<strong>${fmt(Math.round(newOtAmount))}</strong>　固定残業時間：<strong>${newOtHours}時間</strong>　<span class="${hOk?'ar-ok':'ar-ng'}">${hOk?'':'❌ 45時間超過'}</span></div>
+<div>合計賃金：<strong>${fmt(Math.round(newTotal))}</strong></div>
+`;
+}
 function showCompare(){
 if(!state.calcBase){ alert('先に数値を入力してください'); return; }
 const card = document.getElementById('compare-card');
@@ -876,6 +944,7 @@ document.getElementById('badge-hours').className='badge';
 document.getElementById('r-diff').textContent='－';
 document.getElementById('base-fmt').textContent='';
 document.getElementById('fix-suggestion').classList.remove('show');
+document.getElementById('adjust-box').classList.remove('show');
 document.getElementById('compare-card').style.display='none';
 document.getElementById('salary-card').style.display='none';
 document.getElementById('revision-result').innerHTML='<p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p>';
