@@ -62,6 +62,7 @@ header{background:#1F3864;padding:14px 16px;position:sticky;top:0;z-index:10;dis
 .badge.ok{background:#EAF5EC;color:#1E7E34}
 .badge.ng{background:#FDE8E8;color:#C0392B}
 .badge.warn{background:#FFF6E0;color:#B7791F}
+.compare-table td.warn{color:#B7791F;font-weight:600}
 .formula-box{background:#F4F6F9;border-radius:8px;padding:10px 14px;font-size:13px;color:#3A4255;line-height:1.8;margin-bottom:12px}
 .formula-box span{color:#1F3864;font-weight:600}
 .history-item{background:#F4F6F9;border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer;border:1px solid transparent;transition:all .15s}
@@ -397,6 +398,18 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 <button class="compare-btn" onclick="toggleSalaryCard()">💴 年収・社会保険料 概算を見る</button>
 </div>
 
+<!-- 最低賃金改定シミュレーション -->
+<div class="card">
+<p class="card-title">最低賃金 改定シミュレーション</p>
+<div style="margin-bottom:12px">
+<div class="field" style="margin-bottom:0">
+<label>改定後の最低賃金（円）で試算</label>
+<input type="number" id="future-wage" placeholder="例：1350" inputmode="numeric" oninput="calcRevision()">
+</div>
+</div>
+<div id="revision-result"><p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p></div>
+</div>
+
 <!-- 比較テーブルカード -->
 <div class="card" id="compare-card" style="display:none">
 <p class="card-title">残業時間パターン比較</p>
@@ -436,17 +449,6 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 <div class="checklist-result" id="checklist-result" style="display:none"></div>
 </div>
 
-<!-- 最低賃金改定シミュレーション -->
-<div class="card">
-<p class="card-title">最低賃金 改定シミュレーション</p>
-<div style="margin-bottom:12px">
-<div class="field" style="margin-bottom:0">
-<label>改定後の最低賃金（円）で試算</label>
-<input type="number" id="future-wage" placeholder="例：1350" inputmode="numeric" oninput="calcRevision()">
-</div>
-</div>
-<div id="revision-result"><p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p></div>
-</div>
 <div class="card">
 <p class="card-title" style="margin-bottom:10px">計算履歴</p>
 <p class="card-note">チェックを入れた人が報告書に出力されます（履歴が空のときは現在の入力1名分）。この端末に自動保存されます。</p>
@@ -653,6 +655,19 @@ function setMetric(id,label,value,cls=''){
 return `<div class="metric"><div class="metric-label">${label}</div><div class="metric-value ${cls}">${value}</div></div>`;
 }
 
+// 入力エラー時：stateを無効化して、古い値のまま保存・報告書出力されるのを防ぐ
+function invalidateState(){
+state={};
+['badge-min','badge-hours'].forEach(id=>{
+  document.getElementById(id).textContent='－';
+  document.getElementById(id).className='badge';
+});
+document.getElementById('r-diff').textContent='－';
+document.getElementById('compare-card').style.display='none';
+document.getElementById('salary-card').style.display='none';
+calcRevision();
+}
+
 // =========================================================
 // メイン計算
 // =========================================================
@@ -680,7 +695,7 @@ results+=setMetric('','割増単価',fmtU(premium)+'円');
 results+=setMetric('','固定残業代',fmt(otAmount),'accent found');
 results+=setMetric('','合計賃金',fmt(totalWage),'accent');
 let fp=[fmtNum(baseVal)+'円（基本給）'];
-parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+p.name+'）'));
+parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+esc(p.name)+'）'));
 formulaText=fp.join(' ＋ ')+' ＝ <span>'+fmt(calcBase)+'</span>';
 detailRows=`<tr><td>計算基礎賃金</td><td>${fmt(calcBase)}</td></tr><tr><td>固定残業時間</td><td>${otHours}時間分</td></tr>`;
 }else if(mode==='B'){
@@ -699,7 +714,7 @@ results+=setMetric('','割増単価',fmtU(premium)+'円');
 results+=setMetric('','固定残業時間',Math.floor(otHours)+'時間（切捨）','accent found');
 results+=setMetric('','合計賃金',fmt(totalWage),'accent');
 let fp=[fmtNum(baseVal)+'円（基本給）'];
-parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+p.name+'）'));
+parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+esc(p.name)+'）'));
 formulaText=fp.join(' ＋ ')+' ＝ <span>'+fmt(calcBase)+'</span>';
 detailRows=`<tr><td>計算基礎賃金</td><td>${fmt(calcBase)}</td></tr><tr><td>固定残業代</td><td>${fmt(otAmount)}</td></tr>`;
 }else if(mode==='C'){
@@ -729,7 +744,7 @@ results+=setMetric('','固定残業代',fmt(Math.round(otAmount)),'accent found'
 results+=setMetric('','時間単価',fmtU(hourly)+'円');
 results+=setMetric('','割増単価',fmtU(premium)+'円');
 let fp=[fmtNum(Math.round(baseVal))+'円（基本給）'];
-parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+p.name+'）'));
+parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+esc(p.name)+'）'));
 formulaText='総額 '+fmt(totalWage)+' から逆算<br>'+fp.join(' ＋ ')+' ＝ <span>'+fmt(Math.round(calcBase))+'（計算基礎）</span>';
 detailRows=`<tr><td>計算基礎賃金</td><td>${fmt(Math.round(calcBase))}</td></tr><tr><td>固定残業時間</td><td>${otHours}時間</td></tr><tr><td>総額確認</td><td>${fmt(Math.round(baseVal+otAmount+allowTotal+excluded.reduce((a,b)=>a+b.v,0)))}</td></tr>`;
 }else if(mode==='D'){
@@ -749,13 +764,13 @@ results+=setMetric('','固定残業時間',Math.floor(otHours)+'時間（切捨�
 results+=setMetric('','時間単価',fmtU(hourly)+'円');
 results+=setMetric('','合計賃金',fmt(totalWage),'accent');
 let fp=[fmtNum(baseVal)+'円（基本給）'];
-parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+p.name+'）'));
+parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+esc(p.name)+'）'));
 formulaText='総額 '+fmt(totalWage)+' から逆算<br>'+fp.join(' ＋ ')+' ＝ <span>'+fmt(calcBase)+'（計算基礎）</span>';
 detailRows=`<tr><td>計算基礎賃金</td><td>${fmt(calcBase)}</td></tr><tr><td>固定残業代（逆算）</td><td>${fmt(Math.round(otAmount))}</td></tr>`;
 }
 document.getElementById('results-main').innerHTML=results;
 let excludedNote='';
-if(excluded.length>0) excludedNote='<br><span style="color:#C0392B;font-size:12px">※ 算入除外：'+excluded.map(e=>e.name+'（'+fmtNum(e.v)+'円）').join('、')+'</span>';
+if(excluded.length>0) excludedNote='<br><span style="color:#C0392B;font-size:12px">※ 算入除外：'+excluded.map(e=>esc(e.name)+'（'+fmtNum(e.v)+'円）').join('、')+'</span>';
 document.getElementById('formula-box').innerHTML=formulaText+excludedNote;
 document.getElementById('calc-detail').innerHTML=detailRows;
 renderBefore();
@@ -777,13 +792,13 @@ if(!calcBase){
 if(mode==='C' && baseVal<0){
   document.getElementById('fix-suggestion').innerHTML='<strong>⚠ 入力エラー</strong>：手当合計が計算基礎賃金を上回っています。総額を増やすか手当を見直してください。';
   document.getElementById('fix-suggestion').classList.add('show');
-  return;
+  invalidateState(); return;
 }
 // モードD: otAmountが負（基本給＋手当 > 総額）の警告
 if(mode==='D' && otAmount<0){
   document.getElementById('fix-suggestion').innerHTML='<strong>⚠ 入力エラー</strong>：基本給＋手当が総額を上回っています。総額を増やすか基本給を見直してください。';
   document.getElementById('fix-suggestion').classList.add('show');
-  return;
+  invalidateState(); return;
 }
 const minOk=hourly>=minWage;
 const finalOtHours=(mode==='A'||mode==='C')?otHours:Math.floor(otHours);
@@ -840,15 +855,15 @@ if(!minOk){
   const needBase = Math.ceil(needCalcBase - allowTotal);
   const needBaseAdj = Math.ceil(needBase / 1000) * 1000; // 1000円単位切り上げ
   const newCalcBase = needBaseAdj + allowTotal;
-  const newHourly = Math.round(newCalcBase / hours * 10) / 10;
-  const newPremium = Math.round(newHourly * rate * 10) / 10;
+  const newHourly = RU(newCalcBase / hours);
+  const newPremium = RU(newHourly * rate);
   const newOtAmount = Math.round(newPremium * otHours);
   const diffBase = needBaseAdj - baseVal;
 
-  msgs.push(`<strong>⚠ 最低賃金NG</strong>：時間単価 ${fmtNum(Math.round(hourly*10)/10)}円 → 最低賃金 ${fmtNum(minWage)}円 に ${fmtNum(Math.round(hourly*10)/10-minWage<0?minWage-Math.round(hourly*10)/10:0)}円 不足`);
+  msgs.push(`<strong>⚠ 最低賃金NG</strong>：時間単価 ${fmtU(hourly)}円 → 最低賃金 ${fmtNum(minWage)}円 に ${fmtU(Math.max(0,minWage-hourly))}円 不足`);
   if(mode!=='C'){
     msgs.push(`📌 修正案：基本給を <strong>${fmtNum(needBaseAdj)}円</strong>（＋${fmtNum(diffBase)}円）に引き上げ`);
-    msgs.push(`　→ 新しい時間単価：<strong>${fmtNum(newHourly)}円</strong>　固定残業代：<strong>${fmt(newOtAmount)}</strong>（整合済）`);
+    msgs.push(`　→ 新しい時間単価：<strong>${fmtU(newHourly)}円</strong>　固定残業代：<strong>${fmt(newOtAmount)}</strong>（整合済）`);
   }
 }
 
@@ -859,7 +874,7 @@ if(hOk && otHours>40){
 if(!hOk){
   msgs.push(`<strong>⚠ 時間外上限NG</strong>：固定残業 ${otHours}時間 → 45時間以内に収めてください`);
   // 45時間に抑えた場合の残業代
-  const newOt45 = Math.round((calcBase/hours)*rate*45);
+  const newOt45 = Math.round(RU(RU(calcBase/hours)*rate)*45);
   msgs.push(`📌 修正案：残業時間を45時間にすると固定残業代 <strong>${fmt(newOt45)}</strong>`);
 }
 
@@ -880,8 +895,8 @@ if(!adjBase || !state.calcBase){
 }
 const {allowTotal, hours, rate, minWage, otHours, mode, totalWage, excluded} = state;
 const newCalcBase = adjBase + allowTotal;
-const newHourly = newCalcBase / hours;
-const newPremium = newHourly * rate;
+const newHourly = RU(newCalcBase / hours);
+const newPremium = RU(newHourly * rate);
 
 let newOtAmount, newOtHours, newTotal;
 if(mode === 'B'){
@@ -902,14 +917,13 @@ if(mode === 'B'){
   newTotal = newCalcBase + newOtAmount + excluded.reduce((a,b)=>a+b.v,0);
 }
 
-const newHourlyR = Math.round(newHourly * 10) / 10;
 const minOk = newHourly >= minWage;
 const hOk = newOtHours <= 45;
 const diff = Math.round(newHourly - minWage);
 
 el.innerHTML = `
-<div>時間単価：<strong>${fmtNum(newHourlyR)}円</strong>　<span class="${minOk?'ar-ok':'ar-ng'}">${minOk?'✅ 最低賃金OK':'❌ 最低賃金NG（'+fmtNum(Math.abs(diff))+'円不足）'}</span></div>
-<div>割増単価：<strong>${fmtNum(Math.round(newPremium*10)/10)}円</strong></div>
+<div>時間単価：<strong>${fmtU(newHourly)}円</strong>　<span class="${minOk?'ar-ok':'ar-ng'}">${minOk?'✅ 最低賃金OK':'❌ 最低賃金NG（'+fmtU(Math.abs(newHourly-minWage))+'円不足）'}</span></div>
+<div>割増単価：<strong>${fmtU(newPremium)}円</strong></div>
 <div>固定残業代：<strong>${fmt(Math.round(newOtAmount))}</strong>　固定残業時間：<strong>${newOtHours}時間</strong>　<span class="${hOk?'ar-ok':'ar-ng'}">${hOk?'':'❌ 45時間超過'}</span></div>
 <div>合計賃金：<strong>${fmt(Math.round(newTotal))}</strong></div>
 `;
@@ -926,21 +940,23 @@ setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'nearest'}), 50);
 
 function renderCompareTable(){
 const fixedPatterns = [20,30,40,45];
-const {calcBase,hours,rate,minWage,otHours:currentOtHours} = state;
-const hourly = calcBase/hours;
-const premium = hourly*rate;
-const minOk = hourly >= minWage;
+const {otHours:currentOtHours} = state;
+// 計算結果カードと同じ単価（端数処理を反映済み）を使う
+const premium = state.premium;
+const minOk = state.minOk;
 const patterns = fixedPatterns.includes(currentOtHours)
   ? fixedPatterns
   : [...fixedPatterns, currentOtHours].sort((a,b)=>a-b);
 let rows = patterns.map(h=>{
   const ot = Math.round(premium*h);
   const ok = minOk && h<=45;
+  const warn = ok && h>40;
   const isCurrent = h===currentOtHours;
+  const judge = ok ? (warn?'⚠ 注意':'✅ OK') : '❌ NG';
   return `<tr onclick="applyOtHours(${h})" style="cursor:pointer" title="${h}時間で反映する">
     <td class="${isCurrent?'highlight':''}">${h}時間${isCurrent?' ◀現在':''}</td>
     <td class="${isCurrent?'highlight':''}">${fmtNum(ot)}円</td>
-    <td class="${ok?'ok':'ng'}${isCurrent?' highlight':''}">${ok?'✅ OK':'❌ NG'}</td>
+    <td class="${ok?(warn?'warn':'ok'):'ng'}${isCurrent?' highlight':''}">${judge}</td>
     <td style="font-size:11px;color:#9AA3B2;text-align:center" class="hide-sp">${isCurrent?'―':'適用 →'}</td>
   </tr>`;
 }).join('');
@@ -953,10 +969,8 @@ function applyOtHours(h){
 if(mode==='A'||mode==='C'){
   document.getElementById('ot-hours').value=h;
 } else if(mode==='B'){
-  // premiumを丸めずに再計算して誤差を防ぐ
-  const {calcBase,hours,rate} = state;
-  const rawPremium = (calcBase/hours)*rate;
-  const newOtAmount = Math.round(rawPremium * h);
+  // 計算結果と同じ割増単価（端数処理反映済み）で逆算する
+  const newOtAmount = Math.round(state.premium * h);
   document.getElementById('ot-amount').value = newOtAmount;
 } else if(mode==='D'){
   alert('モード②（総額逆算②）では残業時間は逆算値です。\n総額または基本給を変更して調整してください。');
@@ -1067,17 +1081,18 @@ if(!futureOk&&canCalcFix){
   const needBase=Math.ceil(needCalcBase-state.allowTotal);
   const needBaseAdj=Math.ceil(needBase/1000)*1000;
   const newCalcBase=needBaseAdj+state.allowTotal;
-  const newHourly=Math.round(newCalcBase/state.hours*10)/10;
-  const newOtAmount=Math.round(newHourly*state.rate*state.otHours);
+  const newHourly=RU(newCalcBase/state.hours);
+  const newPremium=RU(newHourly*state.rate);
+  const newOtAmount=Math.round(newPremium*state.otHours);
   const baseUpAmount=needBaseAdj-state.baseVal;
-  fixRows=`<div class="revision-row"><span>不足額</span><span style="color:#C0392B;font-weight:700">${fmtNum(Math.abs(diff))}円/時間</span></div>
+  fixRows=`<div class="revision-row"><span>不足額</span><span style="color:#C0392B;font-weight:700">${fmtU(Math.abs(currentHourly-futureWage))}円/時間</span></div>
 <div class="revision-row"><span>📌 基本給の修正目安</span><span style="color:#1F3864;font-weight:700">${fmtNum(needBaseAdj)}円（+${fmtNum(baseUpAmount)}円）</span></div>
 <div class="revision-row"><span>修正後の固定残業代</span><span style="color:#1E7E34;font-weight:700">${fmt(newOtAmount)}</span></div>`;
 }
 el.innerHTML=`
 <div class="revision-row"><span>現在の最低賃金</span><span>${fmtNum(currentWage)}円</span></div>
 <div class="revision-row"><span>改定後の最低賃金</span><span style="font-weight:700">${fmtNum(futureWage)}円（${wageDiff>=0?'+':''}${fmtNum(wageDiff)}円）</span></div>
-<div class="revision-row"><span>現在の時間単価</span><span>${fmtNum(currentHourly)}円</span></div>
+<div class="revision-row"><span>現在の時間単価</span><span>${fmtU(currentHourly)}円</span></div>
 <div class="revision-row"><span>改定後の適法判定</span><span class="revision-tag ${futureOk?'tag-ok':'tag-ng'}">${futureOk?'OK：そのまま適法':'NG：賃金改定が必要'}</span></div>
 ${fixRows}
 ${futureOk?`<div class="revision-row"><span>余裕（時間単価との差）</span><span style="color:#1E7E34;font-weight:700">＋${fmtNum(diff)}円</span></div>`:''}
@@ -1129,7 +1144,7 @@ el.innerHTML=history.map((h,i)=>`
 <div class="history-item${h.sel===false?' off':''}">
 <input type="checkbox" class="history-check" ${h.sel===false?'':'checked'} onclick="toggleHistory(${i},event)" title="報告書に出力">
 <div class="history-body" onclick="loadHistory(${i})">
-<div class="history-name">${i+1}. ${h.name||'（氏名未入力）'} <span style="font-size:11px;color:#9AA3B2">${modeLabel[h.mode]||''}</span></div>
+<div class="history-name">${i+1}. ${esc(h.name)||'（氏名未入力）'} <span style="font-size:11px;color:#9AA3B2">${modeLabel[h.mode]||''}</span></div>
 <div class="history-meta">${h.savedAt} 残業代 ${fmtNum(h.otAmount)}円（${h.otHours}時間） 合計 ${fmtNum(h.totalWage)}円</div>
 </div>
 <div class="history-tools">
@@ -1208,6 +1223,9 @@ document.getElementById('adjust-box').classList.remove('show');
 document.getElementById('compare-card').style.display='none';
 document.getElementById('salary-card').style.display='none';
 document.getElementById('revision-result').innerHTML='<p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p>';
+CHECKLIST.forEach(c=>{ checkState[c.id]=false; });
+renderChecklist();
+state={};
 persist();
 }
 
