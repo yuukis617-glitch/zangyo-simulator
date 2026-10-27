@@ -90,6 +90,9 @@ header{background:#1F3864;padding:14px 16px;position:sticky;top:0;z-index:10;dis
 /* NG修正提案 */
 .fix-suggestion{background:#FFF8E1;border:1px solid #FFD54F;border-radius:10px;padding:12px 14px;margin-top:10px;font-size:13px;color:#5D4037;line-height:1.7;display:none}
 .fix-suggestion.show{display:block}
+.sanity-warn{background:#FCE8E6;border:1px solid #E6B0AA;border-left:4px solid #C0392B;border-radius:10px;padding:11px 13px;margin-bottom:12px;font-size:13px;color:#7B241C;line-height:1.7;display:none}
+.sanity-warn.show{display:block}
+.sanity-warn strong{color:#C0392B}
 .fix-suggestion strong{color:#C0392B}
 .adjust-box{background:#F4F6F9;border:1px solid #DDE2EA;border-radius:10px;padding:12px 14px;margin-top:10px;display:none}
 .adjust-box.show{display:block}
@@ -412,6 +415,7 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 <div class="col-right">
 <div class="card">
 <p class="card-title">計算結果</p>
+<div class="sanity-warn" id="sanity-warn"></div>
 <div class="results" id="results-main"></div>
 <div class="formula-box" id="formula-box">計算モードを選んで数値を入力してください</div>
 <table class="calc-table" id="calc-detail"></table>
@@ -541,6 +545,15 @@ CHECKLIST.forEach(c=>{ checkState[c.id]=false; });
 // モード切替
 // =========================================================
 function setMode(m){
+// 直前のモードで算出した値を、次のモードの入力欄へ引き継ぐ
+if(mode!==m && state && state.calcBase){
+  const set=(id,v)=>{const e=document.getElementById(id); if(e&&isFinite(v)&&v>0) e.value=(Math.round(v*10)/10);};
+  if(mode==='C') set('base',state.baseVal);                       // Cで出した基本給 → 基本給欄
+  if(mode==='D') set('ot-hours',Math.floor(state.otHours));       // Dで出した固定残業時間 → 時間欄
+  if(mode==='A') set('ot-amount',state.otAmount);                 // Aで出した固定残業代 → 金額欄
+  if(mode==='B') set('ot-hours',state.otHours);                   // Bで出した時間数 → 時間欄
+  if(mode==='A'||mode==='B') set('total-wage',state.totalWage);   // A/Bで出した合計賃金 → 総額欄
+}
 mode=m;
 ['A','B','C','D'].forEach(x=>{
 document.getElementById('mode-'+x).classList.toggle('active',x===m);
@@ -896,7 +909,7 @@ totalWage=calcBase+otAmount+excluded.reduce((a,b)=>a+b.v,0);
 document.getElementById('base-fmt').textContent=baseVal>0?fmt(baseVal):'';
 results+=setMetric('','時間単価',fmtU(hourly)+'円');
 results+=setMetric('','割増単価',fmtU(premium)+'円');
-results+=setMetric('','固定残業時間',Math.floor(otHours)+'時間（切捨）','accent found');
+results+=setMetric('','固定残業時間（逆算）',Math.floor(otHours+1e-6)+'時間（切捨）','accent found');
 results+=setMetric('','合計賃金',fmt(totalWage),'accent');
 let fp=[fmtNum(baseVal)+'円（基本給）'];
 parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+esc(p.name)+'）'));
@@ -912,7 +925,7 @@ calcBase=netTotal/factor;
 // 端数処理を入れると「基本給＋手当＋残業代＝総額」が崩れるので収束計算する
 for(let i=0;i<10;i++){
   const h=RU(calcBase/hours), pr=RU(h*rate);
-  const oa=Math.round(pr*otHours);
+  const oa=Math.ceil(pr*otHours);   // 表示した時間数を確実にカバーするため切り上げ
   const ncb=netTotal-oa;
   if(Math.abs(ncb-calcBase)<0.5){calcBase=ncb;break;}
   calcBase=ncb;
@@ -921,7 +934,7 @@ hourlyRaw=calcBase/hours;
 hourly=RU(hourlyRaw);
 premiumRaw=hourly*rate;
 premium=RU(premiumRaw);
-otAmount=Math.round(premium*otHours);
+otAmount=Math.ceil(premium*otHours);   // 切り上げ：17,670.6円→17,671円
 calcBase=netTotal-otAmount;          // 基本給＋手当＋残業代＝総額 を厳密に一致させる
 baseVal=calcBase-allowTotal;
 results+=setMetric('','基本給',fmt(Math.round(baseVal)),'accent found');
@@ -945,7 +958,7 @@ premium=RU(premiumRaw);
 otAmount=totalWage-calcBase-exclTotal;
 otHours=premium>0?otAmount/premium:0;
 results+=setMetric('','固定残業代',fmt(Math.round(otAmount)),'accent found');
-results+=setMetric('','固定残業時間',Math.floor(otHours)+'時間（切捨）','accent found');
+results+=setMetric('','固定残業時間（逆算）',Math.floor(otHours+1e-6)+'時間（切捨）','accent found');
 results+=setMetric('','時間単価',fmtU(hourly)+'円');
 results+=setMetric('','合計賃金',fmt(totalWage),'accent');
 let fp=[fmtNum(baseVal)+'円（基本給）'];
@@ -968,6 +981,7 @@ if(!calcBase){
   });
   document.getElementById('r-diff').textContent='－';
   document.getElementById('fix-suggestion').classList.remove('show');
+  document.getElementById('sanity-warn').classList.remove('show');
   document.getElementById('salary-card').style.display='none';
   state={};
   return;
@@ -986,7 +1000,7 @@ if(mode==='D' && otAmount<0){
   invalidateState(); return;
 }
 const minOk=hourly>=minWage;
-const finalOtHours=(mode==='A'||mode==='C')?otHours:Math.floor(otHours);
+const finalOtHours=(mode==='A'||mode==='C')?otHours:Math.floor(otHours+1e-6);
 const hOk=finalOtHours<=45;
 const hWarn=hOk&&finalOtHours>40;
 const diff=Math.round(hourly-minWage);
@@ -995,6 +1009,24 @@ document.getElementById('badge-min').className='badge '+(minOk?'ok':'ng');
 document.getElementById('badge-hours').textContent=hOk?(hWarn?'注意':'OK'):'NG';
 document.getElementById('badge-hours').className='badge '+(hOk?(hWarn?'warn':'ok'):'ng');
 document.getElementById('r-diff').textContent=(diff>=0?'+':'')+fmtNum(diff)+'円';
+
+// ── 入力の妥当性チェック（未入力・桁違いの検出）
+(function(){
+  const sw=document.getElementById('sanity-warn'); if(!sw) return;
+  const msgs=[];
+  const baseIn=parseFloat(document.getElementById('base').value);
+  const totIn=parseFloat(document.getElementById('total-wage').value);
+  if(mode==='D'&&!(baseIn>0))
+    msgs.push('<strong>基本給が未入力です。</strong>このモードは「総額 ＋ 基本給」から固定残業代と時間数を<u>逆算</u>します。固定残業時間は入力欄ではなく計算結果として表示されます。');
+  if((mode==='C'||mode==='D')&&!(totIn>0))
+    msgs.push('<strong>総額賃金が未入力です。</strong>');
+  if(finalOtHours>100)
+    msgs.push('<strong>固定残業時間が '+Math.round(finalOtHours)+' 時間と計算されました。</strong>基本給や総額の桁が1つ違っていないかご確認ください。');
+  else if(hourly>0&&minWage>0&&hourly<minWage*0.7)
+    msgs.push('<strong>時間単価が '+fmtU(hourly)+' 円と、最低賃金を大きく下回っています。</strong>入力金額の桁をご確認ください。');
+  sw.innerHTML=msgs.join('<br>');
+  sw.classList.toggle('show',msgs.length>0);
+})();
 state={mode,hours,rate,minWage,baseVal:Math.round(baseVal||0),allowTotal,parts,excluded,
 calcBase:Math.round(calcBase||0),hourly:Math.round((hourly||0)*10)/10,
 premium:Math.round((premium||0)*10)/10,
@@ -1293,6 +1325,9 @@ if(!state.calcBase){alert('先に数値を入力してください');return;}
 const nm=(document.getElementById('person-name').value||'').trim();
 if(!nm && !confirm('氏名が未入力です。このまま保存しますか？')) return;
 const entry={...state,sel:true,
+  name:nm,                                                  // 氏名欄はcalc()を呼ばないのでDOMから取り直す
+  staff:(document.getElementById('staff-name').value||'').trim(),
+  company:(document.getElementById('company-name').value||'').trim(),
   savedAt:new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})};
 const dup=history.findIndex(h=>(h.name||'')===nm && nm!=='');
 if(dup>=0 && confirm(`「${nm}」はすでに保存されています。上書きしますか？\n（キャンセルすると別件として追加します）`)){
@@ -1404,6 +1439,7 @@ document.getElementById('badge-hours').className='badge';
 document.getElementById('r-diff').textContent='－';
 document.getElementById('base-fmt').textContent='';
 document.getElementById('fix-suggestion').classList.remove('show');
+document.getElementById('sanity-warn').classList.remove('show');
 document.getElementById('adjust-box').classList.remove('show');
 document.getElementById('compare-card').style.display='none';
 document.getElementById('salary-card').style.display='none';
@@ -1667,4 +1703,3 @@ document.getElementById('salary-card').style.display='none';
 </script>
 </body>
 </html>
- 
