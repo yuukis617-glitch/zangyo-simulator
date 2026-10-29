@@ -324,7 +324,7 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 </div>
 <div class="field" style="margin-bottom:0">
 <label>最低賃金（円）</label>
-<input type="number" id="min-wage" value="1280" inputmode="numeric" oninput="onMinWageInput()">
+<input type="text" class="yen" id="min-wage" value="1280" inputmode="numeric" oninput="onMinWageInput()">
 <div class="field-hint">特定（産業別）最低賃金や改定前の額を使うときは直接入力してください。</div>
 </div>
 <div class="field" style="margin-bottom:0">
@@ -343,14 +343,14 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 <div id="field-total" style="display:none">
 <div class="field">
 <label>総額賃金（円）</label>
-<input type="number" id="total-wage" placeholder="例：300000" inputmode="numeric" oninput="calc()">
+<input type="text" class="yen" id="total-wage" placeholder="例：300000" inputmode="numeric" oninput="calc()">
 <div class="field-hint">基本給＋固定残業代＋すべての手当の合計</div>
 </div>
 </div>
 <div id="field-base">
 <div class="field">
 <label>基本給（円）</label>
-<input type="number" id="base" placeholder="例：160000" inputmode="numeric" oninput="calc()">
+<input type="text" class="yen" id="base" placeholder="例：160000" inputmode="numeric" oninput="calc()">
 <div class="field-hint" id="base-fmt"></div>
 </div>
 </div>
@@ -372,7 +372,7 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 <div id="field-ot-amount" style="display:none;margin-top:12px">
 <div class="field" style="margin-bottom:0">
 <label>固定残業代（円）</label>
-<input type="number" id="ot-amount" placeholder="例：55000" inputmode="numeric" oninput="calc()">
+<input type="text" class="yen" id="ot-amount" placeholder="例：55000" inputmode="numeric" oninput="calc()">
 </div>
 </div>
 </div>
@@ -382,11 +382,11 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 <div class="grid2">
 <div class="field">
 <label>変更前 基本給（円）</label>
-<input type="number" id="before-base" placeholder="変更なし" inputmode="numeric" oninput="updateBefore()">
+<input type="text" class="yen" id="before-base" placeholder="変更なし" inputmode="numeric" oninput="updateBefore()">
 </div>
 <div class="field">
 <label>変更前 固定残業代（円）</label>
-<input type="number" id="before-ot-amount" placeholder="変更なし" inputmode="numeric" oninput="updateBefore()">
+<input type="text" class="yen" id="before-ot-amount" placeholder="変更なし" inputmode="numeric" oninput="updateBefore()">
 </div>
 </div>
 <div class="grid2">
@@ -396,7 +396,7 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 </div>
 <div class="field">
 <label>賃上げ額（円）</label>
-<input type="number" id="before-raise" placeholder="自動（固定残業代の増加額）" inputmode="numeric" oninput="updateBefore()">
+<input type="text" class="yen" id="before-raise" placeholder="自動（固定残業代の増加額）" inputmode="numeric" oninput="updateBefore()">
 </div>
 </div>
 <p style="font-size:12px;font-weight:600;color:#5A6478;margin:4px 0 8px">手当（変更前の金額）</p>
@@ -429,10 +429,12 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 <div class="adjust-box" id="adjust-box">
 <div class="adjust-box-title">🔧 基本給を調整して再計算</div>
 <div class="adjust-row">
-  <input type="number" id="adjust-base" inputmode="numeric" placeholder="例：223800" oninput="calcAdjust()">
+  <input type="text" class="yen" id="adjust-base" inputmode="numeric" placeholder="例：223800" oninput="calcAdjust()">
   <span>円</span>
 </div>
 <div class="adjust-results" id="adjust-results"></div>
+<button class="mini-btn" type="button" id="adjust-apply" onclick="applyAdjust()" style="margin-top:9px">この金額を入力欄に反映する</button>
+<div class="field-hint" style="margin-top:5px">このボックスは試算です。反映を押すと入力欄に書き込まれ、計算結果・判定・履歴・報告書に反映されます。</div>
 </div>
 <!-- 比較モードボタン -->
 <button class="compare-btn" onclick="showCompare()">📊 残業時間パターン比較（20・30・40・45h）</button>
@@ -445,7 +447,7 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 <div style="margin-bottom:12px">
 <div class="field" style="margin-bottom:0">
 <label>改定後の最低賃金（円）で試算</label>
-<input type="number" id="future-wage" placeholder="例：1350" inputmode="numeric" oninput="calcRevision()">
+<input type="text" class="yen" id="future-wage" placeholder="例：1350" inputmode="numeric" oninput="calcRevision()">
 </div>
 </div>
 <div id="revision-result"><p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p></div>
@@ -547,7 +549,7 @@ CHECKLIST.forEach(c=>{ checkState[c.id]=false; });
 function setMode(m){
 // 直前のモードで算出した値を、次のモードの入力欄へ引き継ぐ
 if(mode!==m && state && state.calcBase){
-  const set=(id,v)=>{const e=document.getElementById(id); if(e&&isFinite(v)&&v>0) e.value=(Math.round(v*10)/10);};
+  const set=(id,v)=>{const e=document.getElementById(id); if(e&&isFinite(v)&&v>0) e.value=e.classList.contains('yen')?fmtYen(v):(Math.round(v*10)/10);};
   if(mode==='C') set('base',state.baseVal);                       // Cで出した基本給 → 基本給欄
   if(mode==='D') set('ot-hours',Math.floor(state.otHours));       // Dで出した固定残業時間 → 時間欄
   if(mode==='A') set('ot-amount',state.otAmount);                 // Aで出した固定残業代 → 金額欄
@@ -575,7 +577,7 @@ div.className='allowance-row';
 div.id=id;
 div.innerHTML=`
 <div class="field" style="margin-bottom:0"><input type="text" placeholder="例：資格手当" value="${name}" oninput="calc()"></div>
-<div class="field" style="margin-bottom:0"><input type="number" placeholder="0" value="${amount}" inputmode="numeric" oninput="calc()"></div>
+<div class="field" style="margin-bottom:0"><input type="text" class="yen" placeholder="0" value="${fmtYen(amount)}" inputmode="numeric" oninput="calc()"></div>
 <select onchange="calc()" style="height:38px;border:1px solid #DDE2EA;border-radius:8px;font-size:12px;padding:0 6px;color:#1a1a2e;background:#FAFBFC;cursor:pointer">
 <option value="1" ${taxable?'selected':''}>算入</option>
 <option value="0" ${!taxable?'selected':''}>除外</option>
@@ -592,7 +594,7 @@ document.querySelectorAll('#allowances .allowance-row').forEach(row=>{
 const inputs=row.querySelectorAll('input');
 const sel=row.querySelector('select');
 const name=inputs[0].value||'手当';
-const v=parseFloat(inputs[1].value)||0;
+const v=parseFloat(NV(inputs[1].value))||0;
 const inc=sel.value==='1';
 if(v>0){
 if(inc){total+=v;parts.push({name,v});}
@@ -656,7 +658,7 @@ calc();
 function onMinWageInput(){
 const sel=document.getElementById('pref');
 const p=PREFS.find(x=>x[0]===sel.value);
-const v=parseFloat(document.getElementById('min-wage').value);
+const v=parseFloat(NV(document.getElementById('min-wage').value));
 if(p && v!==p[1]) sel.value='';
 updatePrefHint();
 calc();
@@ -672,15 +674,15 @@ box.style.display=open?'block':'none';
 if(open) runHoursCalc();
 }
 function hoursFromHolidays(){
-const hol=parseFloat(document.getElementById('hc-holidays').value);
-const day=parseFloat(document.getElementById('hc-daily').value);
+const hol=parseFloat(NV(document.getElementById('hc-holidays').value));
+const day=parseFloat(NV(document.getElementById('hc-daily').value));
 if(!isFinite(hol)||!isFinite(day)||hol<0||hol>365||day<=0) return null;
 return (365-hol)*day/12;
 }
 function runHoursCalc(){
 const v=hoursFromHolidays();
 document.getElementById('hc-out').textContent =
-  v===null?'－':`年間所定労働日数 ${fmtNum(365-parseFloat(document.getElementById('hc-holidays').value))}日 ／ 月平均 ${(Math.round(v*100)/100)} 時間`;
+  v===null?'－':`年間所定労働日数 ${fmtNum(365-parseFloat(NV(document.getElementById('hc-holidays').value)))}日 ／ 月平均 ${(Math.round(v*100)/100)} 時間`;
 }
 function applyHoursCalc(){
 const v=hoursFromHolidays();
@@ -740,7 +742,7 @@ const ROUND_CHIP={none:'丸めなし',sen50:'50銭ルール',up:'円未満切上
 function renderCondBar(){
 const el=document.getElementById('cond-chips'); if(!el) return;
 const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
-const pref=g('pref'), mw=parseFloat(g('min-wage')), hrs=parseFloat(g('monthly-hours')), rate=parseFloat(g('premium-rate'));
+const pref=g('pref'), mw=parseFloat(NV(g('min-wage'))), hrs=parseFloat(NV(g('monthly-hours'))), rate=parseFloat(NV(g('premium-rate')));
 const chips=[
   (pref?pref+' ':'')+(isFinite(mw)?fmtNum(mw)+'円':'－'),
   (isFinite(hrs)?hrs:'－')+'時間',
@@ -777,6 +779,7 @@ try{
   if(d.pref!==undefined){const e=document.getElementById('pref'); if(e) e.value=d.pref;}
   if(d.presets && typeof d.presets==='object' && !Array.isArray(d.presets)) presets=d.presets;
   if(Array.isArray(d.history)) history=d.history.map(h=>({...h, sel:h.sel!==false}));
+  formatAllYen();
 }catch(e){/* 壊れたデータは無視 */}
 }
  
@@ -794,29 +797,29 @@ if(wrap.dataset.ids!==ids){
   wrap.dataset.ids=ids;
   wrap.innerHTML=rows.map(r=>
     `<div class="before-row" data-for="${r.id}"><span class="before-lbl"></span>`+
-    `<input type="number" inputmode="numeric" value="${beforeVals[r.id]||''}" `+
+    `<input type="text" class="yen" inputmode="numeric" value="${beforeVals[r.id]||''}" `+
     `oninput="beforeVals['${r.id}']=this.value;updateBefore()"></div>`).join('');
 }
 rows.forEach(r=>{
   const el=wrap.querySelector('[data-for="'+r.id+'"]'); if(!el) return;
   const ins=r.querySelectorAll('input');
   el.querySelector('.before-lbl').textContent=ins[0].value||'手当';
-  el.querySelector('input').placeholder=(ins[1].value?fmtNum(parseFloat(ins[1].value)||0):'変更なし');
+  el.querySelector('input').placeholder=(ins[1].value?fmtNum(parseFloat(NV(ins[1].value))||0):'変更なし');
 });
 }
  
 function numOrNull(id){
 const el=document.getElementById(id); if(!el) return null;
-const v=el.value; return (v===''||v===null||v===undefined)?null:(parseFloat(v)||0);
+const v=el.value; return (v===''||v===null||v===undefined)?null:(parseFloat(NV(v))||0);
 }
  
 // 現在の計算結果 cur を基準に「変更前」を組み立てる（未入力＝変更なし）
 function buildBefore(cur){
 const allowances=[...document.querySelectorAll('#allowances .allowance-row')].map(r=>{
   const ins=r.querySelectorAll('input');
-  const after=parseFloat(ins[1].value)||0;
+  const after=parseFloat(NV(ins[1].value))||0;
   const raw=beforeVals[r.id];
-  const before=(raw===undefined||raw==='')?after:(parseFloat(raw)||0);
+  const before=(raw===undefined||raw==='')?after:(parseFloat(NV(raw))||0);
   return {name:ins[0].value||'手当', before, after, included:r.querySelector('select').value==='1'};
 });
 const bb=numOrNull('before-base'), boa=numOrNull('before-ot-amount'),
@@ -835,6 +838,38 @@ function updateBefore(){ if(state.calcBase) state.before=buildBefore(state); }
 // ユーティリティ
 // =========================================================
 function fmtNum(n){return Math.round(n).toLocaleString('ja-JP');}
+
+// =========================================================
+// 金額入力欄のカンマ表示（class="yen" の欄が対象）
+//   NV() … カンマ付き文字列から数値部分だけを取り出す
+// =========================================================
+function NV(v){return String(v==null?'':v).replace(/[^\d.\-]/g,'');}
+function fmtYen(v){const n=parseFloat(NV(v)); return isFinite(n)?Math.round(n).toLocaleString('en-US'):'';}
+function formatYenInput(el){
+  if(!el||!el.value) return;
+  const raw=el.value;
+  let sel=null; try{sel=el.selectionStart;}catch(e){}
+  const before=(sel===null)?null:(raw.slice(0,sel).match(/\d/g)||[]).length;
+  const neg=/^\s*-/.test(raw);
+  let d=raw.replace(/[^\d]/g,'');
+  if(d===''){el.value=neg?'-':''; return;}
+  d=d.replace(/^0+(?=\d)/,'');
+  const out=(neg?'-':'')+Number(d).toLocaleString('en-US');
+  if(out===raw) return;
+  el.value=out;
+  if(before!==null){
+    let c=0,cnt=0;
+    while(c<out.length&&cnt<before){ if(/\d/.test(out[c]))cnt++; c++; }
+    try{el.setSelectionRange(c,c);}catch(e){}
+  }
+}
+function formatAllYen(){document.querySelectorAll('input.yen').forEach(formatYenInput);}
+function setYen(id,n){const e=document.getElementById(id); if(e){e.value=fmtYen(n);} }
+// 入力のたびにカンマを入れ直す（キャプチャ段階なので oninput="calc()" より先に走る）
+document.addEventListener('input',function(e){
+  const el=e.target;
+  if(el&&el.classList&&el.classList.contains('yen')) formatYenInput(el);
+},true);
 // 単価表示（小数第1位まで・3桁区切り）
 function fmtU(n){return (Math.round(n*10)/10).toLocaleString('ja-JP',{maximumFractionDigits:1});}
 // 円未満の端数処理
@@ -869,17 +904,17 @@ calcRevision();
 // メイン計算
 // =========================================================
 function calc(){
-const hours=parseFloat(document.getElementById('monthly-hours').value)||173;
-const rate=parseFloat(document.getElementById('premium-rate').value)||1.25;
-const minWage=parseFloat(document.getElementById('min-wage').value)||1280;
+const hours=parseFloat(NV(document.getElementById('monthly-hours').value))||173;
+const rate=parseFloat(NV(document.getElementById('premium-rate').value))||1.25;
+const minWage=parseFloat(NV(document.getElementById('min-wage').value))||1280;
 renderCondBar();
 const {total:allowTotal,parts,excluded}=getAllowances();
 document.getElementById('r-minlabel').textContent=fmtNum(minWage);
 let calcBase,hourly,premium,otHours,otAmount,baseVal,totalWage,hourlyRaw=0,premiumRaw=0;
 let results='',formulaText='',detailRows='';
 if(mode==='A'){
-baseVal=parseFloat(document.getElementById('base').value)||0;
-otHours=parseFloat(document.getElementById('ot-hours').value)||0;
+baseVal=parseFloat(NV(document.getElementById('base').value))||0;
+otHours=parseFloat(NV(document.getElementById('ot-hours').value))||0;
 calcBase=baseVal+allowTotal;
 hourlyRaw=calcBase/hours;
 hourly=RU(hourlyRaw);
@@ -897,8 +932,8 @@ parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+esc(p.name)+'）'));
 formulaText=fp.join(' ＋ ')+' ＝ <span>'+fmt(calcBase)+'</span>';
 detailRows=`<tr><td>計算基礎賃金</td><td>${fmt(calcBase)}</td></tr><tr><td>固定残業時間</td><td>${otHours}時間分</td></tr>`;
 }else if(mode==='B'){
-baseVal=parseFloat(document.getElementById('base').value)||0;
-otAmount=parseFloat(document.getElementById('ot-amount').value)||0;
+baseVal=parseFloat(NV(document.getElementById('base').value))||0;
+otAmount=parseFloat(NV(document.getElementById('ot-amount').value))||0;
 calcBase=baseVal+allowTotal;
 hourlyRaw=calcBase/hours;
 hourly=RU(hourlyRaw);
@@ -916,8 +951,8 @@ parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+esc(p.name)+'）'));
 formulaText=fp.join(' ＋ ')+' ＝ <span>'+fmt(calcBase)+'</span>';
 detailRows=`<tr><td>計算基礎賃金</td><td>${fmt(calcBase)}</td></tr><tr><td>固定残業代</td><td>${fmt(otAmount)}</td></tr>`;
 }else if(mode==='C'){
-totalWage=parseFloat(document.getElementById('total-wage').value)||0;
-otHours=parseFloat(document.getElementById('ot-hours').value)||0;
+totalWage=parseFloat(NV(document.getElementById('total-wage').value))||0;
+otHours=parseFloat(NV(document.getElementById('ot-hours').value))||0;
 const exclTotal=excluded.reduce((a,b)=>a+b.v,0);
 const netTotal=totalWage-exclTotal;
 const factor=1+(rate*otHours/hours);
@@ -946,8 +981,8 @@ parts.forEach(p=>fp.push(fmtNum(p.v)+'円（'+esc(p.name)+'）'));
 formulaText='総額 '+fmt(totalWage)+' から逆算<br>'+fp.join(' ＋ ')+' ＝ <span>'+fmt(Math.round(calcBase))+'（計算基礎）</span>';
 detailRows=`<tr><td>計算基礎賃金</td><td>${fmt(Math.round(calcBase))}</td></tr><tr><td>固定残業時間</td><td>${otHours}時間</td></tr><tr><td>総額確認</td><td>${fmt(Math.round(baseVal+otAmount+allowTotal+excluded.reduce((a,b)=>a+b.v,0)))}</td></tr>`;
 }else if(mode==='D'){
-totalWage=parseFloat(document.getElementById('total-wage').value)||0;
-baseVal=parseFloat(document.getElementById('base').value)||0;
+totalWage=parseFloat(NV(document.getElementById('total-wage').value))||0;
+baseVal=parseFloat(NV(document.getElementById('base').value))||0;
 document.getElementById('base-fmt').textContent=baseVal>0?fmt(baseVal):'';
 const exclTotal=excluded.reduce((a,b)=>a+b.v,0);
 calcBase=baseVal+allowTotal;
@@ -1014,8 +1049,8 @@ document.getElementById('r-diff').textContent=(diff>=0?'+':'')+fmtNum(diff)+'円
 (function(){
   const sw=document.getElementById('sanity-warn'); if(!sw) return;
   const msgs=[];
-  const baseIn=parseFloat(document.getElementById('base').value);
-  const totIn=parseFloat(document.getElementById('total-wage').value);
+  const baseIn=parseFloat(NV(document.getElementById('base').value));
+  const totIn=parseFloat(NV(document.getElementById('total-wage').value));
   if(mode==='D'&&!(baseIn>0))
     msgs.push('<strong>基本給が未入力です。</strong>このモードは「総額 ＋ 基本給」から固定残業代と時間数を<u>逆算</u>します。固定残業時間は入力欄ではなく計算結果として表示されます。');
   if((mode==='C'||mode==='D')&&!(totIn>0))
@@ -1103,8 +1138,27 @@ el.classList.add('show');
 // =========================================================
 // 基本給調整再計算
 // =========================================================
+// 調整欄の金額を実際の入力欄に書き込む（試算→確定）
+function applyAdjust(){
+const adj=parseFloat(NV(document.getElementById('adjust-base').value));
+if(!isFinite(adj)||adj<=0){alert('調整後の基本給を入力してください。');return;}
+if(!state.calcBase){alert('先に数値を入力してください。');return;}
+if(state.mode==='C'){
+  // モードCは基本給が計算結果なので、総額のほうを書き換える
+  const nb=adj+state.allowTotal;
+  const nh=RU(nb/state.hours), np=RU(nh*state.rate);
+  const noa=Math.ceil(np*state.otHours);
+  const excl=state.excluded.reduce((a,b)=>a+b.v,0);
+  setYen('total-wage', Math.round(nb+noa+excl));
+}else{
+  setYen('base', Math.round(adj));
+}
+document.getElementById('adjust-base').value='';
+calc();
+}
+
 function calcAdjust(){
-const adjBase = parseFloat(document.getElementById('adjust-base').value);
+const adjBase = parseFloat(NV(document.getElementById('adjust-base').value));
 const el = document.getElementById('adjust-results');
 if(!adjBase || !state.calcBase){
   el.innerHTML = '<span style="color:#9AA3B2;font-size:12px">調整後の基本給を入力すると再計算します</span>';
@@ -1279,7 +1333,7 @@ if(checked===total){
 // 改定シミュレーション
 // =========================================================
 function calcRevision(){
-const futureWage=parseFloat(document.getElementById('future-wage').value)||0;
+const futureWage=parseFloat(NV(document.getElementById('future-wage').value))||0;
 const el=document.getElementById('revision-result');
 if(!futureWage||!state.calcBase){
   el.innerHTML='<p style="font-size:13px;color:#9AA3B2;text-align:center;padding:8px 0">改定後の最低賃金を入力してください</p>';
@@ -1393,6 +1447,7 @@ beforeVals={};
 document.getElementById('before-allowances').dataset.ids='';
 aid=0;
 h.parts.forEach(p=>addAllowance(p.name,p.v,true,true));
+formatAllYen();
 h.excluded.forEach(p=>addAllowance(p.name,p.v,false,true));
 // 変更前データも復元
 const hb=h.before;
@@ -1695,6 +1750,7 @@ renderPresetSel();
 renderCondBar();
 runHoursCalc();
 defaults.forEach(a=>addAllowance(a.name,a.amount,a.taxable,true));
+formatAllYen();
 renderChecklist();
 renderHistory();
  
