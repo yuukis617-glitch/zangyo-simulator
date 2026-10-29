@@ -434,7 +434,7 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 </div>
 <div class="adjust-results" id="adjust-results"></div>
 <button class="mini-btn" type="button" id="adjust-apply" onclick="applyAdjust()" style="margin-top:9px">この金額を入力欄に反映する</button>
-<div class="field-hint" style="margin-top:5px">このボックスは試算です。反映を押すと入力欄に書き込まれ、計算結果・判定・履歴・報告書に反映されます。</div>
+<div class="field-hint" id="adjust-hint" style="margin-top:5px"></div>
 </div>
 <!-- 比較モードボタン -->
 <button class="compare-btn" onclick="showCompare()">📊 残業時間パターン比較（20・30・40・45h）</button>
@@ -1084,6 +1084,13 @@ const adjBox = document.getElementById('adjust-box');
 adjBox.classList.add('show');
 document.getElementById('adjust-base').value = '';
 document.getElementById('adjust-results').innerHTML = '<span style="color:#9AA3B2;font-size:12px">調整後の基本給を入力すると再計算します</span>';
+{ // モードによって「反映」の意味が変わるので、ボタンと説明を切り替える
+  const ab=document.getElementById('adjust-apply'), ah=document.getElementById('adjust-hint');
+  if(ab) ab.textContent = (mode==='C')?'この基本給で再設計する（総額はそのまま）':'この金額を入力欄に反映する';
+  if(ah) ah.innerHTML = (mode==='C')
+    ? 'このボックスは試算です。①は基本給が計算結果なので、反映すると<b>総額を変えずに②（総額＋基本給→時間を逆算）へ切り替えて</b>再計算します。固定残業時間のほうが動きます。'
+    : 'このボックスは試算です。反映を押すと入力欄に書き込まれ、計算結果・判定・履歴・報告書にも反映されます。';
+}
  
 // 年収・社保カードはすでに表示中のときだけ更新（自動表示しない）
 if(document.getElementById('salary-card').style.display!=='none') calcSalary();
@@ -1143,18 +1150,17 @@ function applyAdjust(){
 const adj=parseFloat(NV(document.getElementById('adjust-base').value));
 if(!isFinite(adj)||adj<=0){alert('調整後の基本給を入力してください。');return;}
 if(!state.calcBase){alert('先に数値を入力してください。');return;}
+document.getElementById('adjust-base').value='';
 if(state.mode==='C'){
-  // モードCは基本給が計算結果なので、総額のほうを書き換える
-  const nb=adj+state.allowTotal;
-  const nh=RU(nb/state.hours), np=RU(nh*state.rate);
-  const noa=Math.ceil(np*state.otHours);
-  const excl=state.excluded.reduce((a,b)=>a+b.v,0);
-  setYen('total-wage', Math.round(nb+noa+excl));
+  // ①は基本給が計算結果。総額を動かさずに基本給を決めたいので②へ移す
+  // （setMode の引き継ぎで基本給が上書きされるため、モードを切り替えてから書き込む）
+  setMode('D');
+  setYen('base', Math.round(adj));
+  calc();
 }else{
   setYen('base', Math.round(adj));
+  calc();
 }
-document.getElementById('adjust-base').value='';
-calc();
 }
 
 function calcAdjust(){
@@ -1175,8 +1181,8 @@ if(mode === 'B'){
   newOtAmount = state.otAmount;
   newOtHours = Math.floor(newOtAmount / newPremium);
   newTotal = newCalcBase + newOtAmount + excluded.reduce((a,b)=>a+b.v,0);
-} else if(mode === 'D'){
-  // モードD: 総額固定→残業代が変わる
+} else if(mode === 'D' || mode === 'C'){
+  // モードD・C: 総額固定→残業代と時間数が変わる（①も総額を動かさない方針に統一）
   const exclTotal = excluded.reduce((a,b)=>a+b.v,0);
   newOtAmount = totalWage - newCalcBase - exclTotal;
   newOtHours = Math.floor(newOtAmount / newPremium);
