@@ -927,17 +927,18 @@ document.addEventListener('input',function(e){
 function fmtU(n){return (Math.round(n*10)/10).toLocaleString('ja-JP',{maximumFractionDigits:1});}
 // 円未満の端数処理
 function roundMode(){const el=document.getElementById('rounding');return el?el.value:'none';}
-function RU(v){
-const m=roundMode();
+function RUm(v,m){
 if(m==='sen50') return Math.round(v);          // 50銭未満切捨て・50銭以上1円切上げ
 if(m==='up') return Math.ceil(v);              // 円未満切上げ
 return Math.round(v*10)/10;                    // 丸めなし（小数第1位まで保持）
 }
+function RU(v){ return RUm(v,roundMode()); }
 // 総額（除外手当を除く）net を固定し、h時間分を必ず満たす最小の固定残業代を返す。
 // 固定残業代を増やすほど計算基礎が減り単価は下がる（単調）ので二分探索で決まる。
-function minCoverOt(net,h,mh,rate){
+function minCoverOt(net,h,mh,rate,m){
+const R=v=>(m===undefined?RU(v):RUm(v,m));
 if(!(h>0)||!(net>0)) return 0;
-const need=oa=>{const pr=RU(RU((net-oa)/mh)*rate); return Math.ceil(pr*h-1e-9);};
+const need=oa=>{const pr=R(R((net-oa)/mh)*rate); return Math.ceil(pr*h-1e-9);};
 let lo=0, hi=Math.ceil(net);
 while(lo<hi){const mid=Math.floor((lo+hi)/2); if(mid>=need(mid)) hi=mid; else lo=mid+1;}
 return lo;
@@ -1765,14 +1766,36 @@ const cnt={}; people.forEach(p=>{const n=(p.name||'').trim(); if(n) cnt[n]=(cnt[
 out.dupNames=Object.keys(cnt).filter(n=>cnt[n]>1);
 return out;
 }
+// 保存済みの人の計算が、今の計算方式で再現できるか（古い版で保存した人の検出）
+function staleCheck(h){
+if(!h||!(h.calcBase>0)||!(h.hours>0)||h.hourly==null||h.premium==null) return false;
+const m=condNorm('rounding',h.rounding);
+const hr=RUm(h.calcBase/h.hours,m), pr=RUm(hr*h.rate,m);
+if(Math.abs(hr-h.hourly)>0.05 || Math.abs(pr-h.premium)>0.05) return true;       // 単価が計算基礎から再現しない
+if(h.mode==='A'||h.mode==='C'){
+  if(h.otAmount<Math.ceil(pr*h.otHours-1e-9)-1) return true;                      // 時間分を満たしていない
+  if(h.mode==='C'){
+    const ex=(h.excluded||[]).reduce((a,x)=>a+x.v,0);
+    if(h.otAmount!==minCoverOt(h.totalWage-ex,h.otHours,h.hours,h.rate,m)) return true;
+  }
+}else if(pr>0 && Math.floor(h.otAmount/pr+1e-6)!==Math.floor(h.otHours+1e-6)) return true;
+return false;
+}
 // 画面上の警告（印刷前に気づけるように）
 function renderCondWarn(){
 const el=document.getElementById('cond-warn'); if(!el) return;
 const people=history.filter(h=>h.sel!==false);
-if(people.length<2){el.classList.remove('show');return;}
+const stale=people.filter(staleCheck).map(h=>h.name||'（氏名未入力）');
+if(people.length<2 && !stale.length){el.classList.remove('show');return;}
 const c=condCheck(people);
-if(!c.anyDiff && !c.dupNames.length){el.classList.remove('show');return;}
+if(!c.anyDiff && !c.dupNames.length && !stale.length){el.classList.remove('show');return;}
 let html='';
+if(stale.length){
+  html+='<strong>⚠ 計算方式の更新前に保存された人がいます：'+stale.map(esc).join('、')+'</strong>'
+    +'<br>このまま報告書を出すと、計算根拠（時間単価など）が電卓で合いません。'
+    +(c.anyDiff?'':'<br><button class="mini-btn" type="button" onclick="recalcAll(false)" style="margin-top:8px">最新の計算方式で再計算する</button>');
+  if(c.anyDiff||c.dupNames.length) html+='<div style="margin-top:10px"></div>';
+}
 if(c.anyDiff){
   html+='<strong>⚠ 報告書の対象者で共通条件が揃っていません</strong>';
   COND_FIELDS.filter(f=>!c[f.key].same).forEach(f=>{
@@ -1780,7 +1803,7 @@ if(c.anyDiff){
       +c[f.key].breakdown.map(g=>'・'+esc(g.short)+'：'+g.names.map(esc).join('、')+'（'+g.names.length+'名）').join('<br>')+'</div>';
   });
   html+='<div style="margin-top:8px">履歴は<b>保存した時点の条件</b>で計算されています。上の設定を変えただけでは、保存済みの人には反映されません。</div>'
-    +'<button class="mini-btn" type="button" onclick="alignConditions()" style="margin-top:8px">今の共通条件で、対象者全員を再計算して揃える</button>';
+    +'<button class="mini-btn" type="button" onclick="recalcAll(true)" style="margin-top:8px">今の共通条件で、対象者全員を再計算して揃える</button>';
 }
 if(c.dupNames.length){
   html+=(html?'<div style="margin-top:10px">':'<div>')+'<strong>⚠ 同じ氏名が複数あります：'+c.dupNames.map(esc).join('、')
@@ -1789,25 +1812,32 @@ if(c.dupNames.length){
 el.innerHTML=html;
 el.classList.add('show');
 }
-// 対象者全員を「今の共通条件」で再計算して上書きする
-function alignConditions(){
+// 対象者全員を再計算して上書きする
+//   useCurrent=true ：今の画面の共通条件に揃えて再計算
+//   useCurrent=false：各人が保存した条件のまま、最新の計算方式で再計算
+function recalcAll(useCurrent,silent){
 const idx=history.map((h,i)=>h.sel!==false?i:-1).filter(i=>i>=0);
-if(idx.length<1) return;
+if(idx.length<1) return false;
 const g=id=>document.getElementById(id).value;
-const tgt={hours:g('monthly-hours'),rate:g('premium-rate'),minWage:g('min-wage'),rounding:g('rounding')};
-const rl=ROUND_SHORT[tgt.rounding]||'行わない';
-if(!confirm('報告書の対象 '+idx.length+'名を、今の共通条件で再計算して上書きします。\n\n'
-  +'月間平均労働時間 '+tgt.hours+'時間／割増率 '+tgt.rate+'／最低賃金 '+tgt.minWage+'円／端数処理 '+rl+'\n\n'
-  +'各人の計算モードと入力値（総額・基本給・時間など）はそのままで、結果だけが変わります。よろしいですか？')) return;
+const keep={hours:g('monthly-hours'),rate:g('premium-rate'),minWage:g('min-wage'),rounding:g('rounding')};
+const rl=ROUND_SHORT[keep.rounding]||'行わない';
+if(!silent){
+  const msg=useCurrent
+    ? '報告書の対象 '+idx.length+'名を、今の共通条件で再計算して上書きします。\n\n'
+      +'月間平均労働時間 '+keep.hours+'時間／割増率 '+keep.rate+'／最低賃金 '+keep.minWage+'円／端数処理 '+rl+'\n\n'
+    : '報告書の対象 '+idx.length+'名を、各人が保存した条件のまま、最新の計算方式で再計算して上書きします。\n\n';
+  if(!confirm(msg+'各人の計算モードと入力値（総額・基本給・時間など）はそのままで、結果だけが変わります。よろしいですか？')) return false;
+}
 const changes=[], fails=[];
 const now=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
 idx.forEach(i=>{
   const h=history[i];
   loadHistory(i);
-  document.getElementById('monthly-hours').value=tgt.hours;
-  document.getElementById('premium-rate').value=tgt.rate;
-  document.getElementById('min-wage').value=tgt.minWage;
-  document.getElementById('rounding').value=tgt.rounding;
+  const c=useCurrent?keep:{hours:h.hours,rate:h.rate,minWage:h.minWage,rounding:condNorm('rounding',h.rounding)};
+  document.getElementById('monthly-hours').value=c.hours;
+  document.getElementById('premium-rate').value=c.rate;
+  document.getElementById('min-wage').value=c.minWage;
+  document.getElementById('rounding').value=c.rounding;
   formatAllYen(); calc();
   if(!state.calcBase){fails.push(h.name||'（氏名未入力）');return;}
   const d=[];
@@ -1818,12 +1848,15 @@ idx.forEach(i=>{
   if(d.length) changes.push((h.name||'（氏名未入力）')+'：'+d.join('／'));
   history[i]={...state,sel:true,name:h.name,staff:h.staff,company:h.company,savedAt:now};
 });
+if(!useCurrent) document.getElementById('rounding').value=keep.rounding;   // 画面の設定は元に戻す
 renderHistory(); persist();
-alert('再計算して揃えました（'+(idx.length-fails.length)+'名）。\n\n'
+alert('再計算しました（'+(idx.length-fails.length)+'名）。\n\n'
   +(changes.length?'【変わった人】\n'+changes.join('\n'):'数値が変わった人はいません。')
   +(fails.length?'\n\n【計算できなかった人】\n'+fails.join('、'):'')
   +'\n\n★の付いた人は、内容を確認してから報告書を出してください。');
+return true;
 }
+function alignConditions(){ return recalcAll(true); }
 
 // ===== 1ページ目：共通条件＋対象者一覧サマリー =====
 function rpSummaryPage(people,pageNo,cmp){
@@ -2003,6 +2036,12 @@ return rpPage(inner,pageNo,cmp?RP_RUNHEAD_A:RP_RUNHEAD_B);
 }
  
 function printReport(){
+{ const st=history.filter(h=>h.sel!==false).filter(staleCheck).map(h=>h.name||'（氏名未入力）');
+  if(st.length && confirm('計算方式の更新前に保存された人がいます：'+st.join('、')
+     +'\nこのままだと報告書の計算根拠が電卓で合いません。\n\n最新の計算方式で再計算してから出力しますか？\n（キャンセルするとそのまま出力します）')){
+    if(!recalcAll(false,true)) return;
+  }
+}
 // 履歴があればチェックの入っている人、なければ現在の入力1名
 let people=history.length?history.filter(h=>h.sel!==false):(state.calcBase?[state]:[]);
 if(!people.length){
