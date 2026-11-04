@@ -1602,12 +1602,16 @@ if(clr) clr.style.display=history.length?'block':'none';
 renderCondWarn();
 if(history.length===0){el.innerHTML='<p class="history-empty">履歴がありません</p>';return;}
 const modeLabel={'A':'順算','B':'逆算','C':'総額逆算①','D':'総額逆算②'};
+const hc=condCheck(history.filter(x=>x.sel!==false));
+const diffF=COND_FIELDS.filter(f=>!hc[f.key].same);
+const condTag=h=>diffF.length?'<div class="history-meta" style="color:#C0392B">'+diffF.map(f=>f.key==='rounding'?'端数処理 '+(ROUND_SHORT[condNorm('rounding',h.rounding)]||'丸めなし'):esc(f.label+' '+f.fmt(Number(condNorm(f.key,h[f.key]))))).join('／')+'</div>':'';
 el.innerHTML=history.map((h,i)=>`
 <div class="history-item${h.sel===false?' off':''}">
 <input type="checkbox" class="history-check" ${h.sel===false?'':'checked'} onclick="toggleHistory(${i},event)" title="報告書に出力">
 <div class="history-body" onclick="loadHistory(${i})">
 <div class="history-name">${i+1}. ${esc(h.name)||'（氏名未入力）'} <span style="font-size:11px;color:#9AA3B2">${modeLabel[h.mode]||''}</span></div>
 <div class="history-meta">${h.savedAt} 残業代 ${fmtNum(h.otAmount)}円（${h.otHours}時間） 合計 ${fmtNum(h.totalWage)}円</div>
+${condTag(h)}
 </div>
 <div class="history-tools">
 <button class="hist-btn" onclick="moveHistory(${i},-1,event)" title="上へ" ${i===0?'disabled':''}>↑</button>
@@ -1737,15 +1741,31 @@ const COND_FIELDS=[
  {key:'minWage', label:'最低賃金',         fmt:v=>fmtNum(v)+'円'},
  {key:'rounding',label:'円未満の端数処理', fmt:v=>ROUND_LABEL[v||'none']||'行わない（小数のまま計算）'}
 ];
+function condNorm(key,v){
+if(key==='rounding') return (v===undefined||v===null||v==='')?'none':String(v);   // 古い履歴は端数処理なし＝丸めなし
+const n=Number(String(v==null?'':v).replace(/[^\d.\-]/g,''));
+if(!isFinite(n)) return '';
+if(key==='minWage') return String(Math.round(n));
+if(key==='hours')   return String(Math.round(n*100)/100);
+return String(Math.round(n*10000)/10000);
+}
 function condCheck(people){
 const out={};
 COND_FIELDS.forEach(c=>{
-  const vals=[...new Set(people.map(p=>String(p[c.key]===undefined||p[c.key]===null?'':p[c.key])))];
-  out[c.key]={same:vals.length<=1, label:c.label,
-              text:(vals.length<=1)?c.fmt(people[0][c.key]):'人により異なります（各ページの数値をご確認ください）'};
+  const groups={};   // 正規化した値 → 氏名の配列
+  people.forEach(p=>{const k=condNorm(c.key,p[c.key]); (groups[k]=groups[k]||[]).push(p.name||'（氏名未入力）');});
+  const keys=Object.keys(groups);
+  const same=keys.length<=1;
+  const val=k=>c.key==='rounding'?k:Number(k);
+  out[c.key]={same,label:c.label,
+    text:same?c.fmt(val(keys[0])):'人により異なります（各ページの数値をご確認ください）',
+    breakdown:keys.map(k=>({value:c.fmt(val(k)),short:c.key==='rounding'?(ROUND_SHORT[k]||'丸めなし'):c.fmt(val(k)),names:groups[k]}))};
 });
 out.anyDiff=COND_FIELDS.some(c=>!out[c.key].same);
 out.diffLabels=COND_FIELDS.filter(c=>!out[c.key].same).map(c=>c.label);
+// 同じ氏名が複数（上書きせず「別件追加」になった古い行が残っている）
+const cnt={}; people.forEach(p=>{const n=(p.name||'').trim(); if(n) cnt[n]=(cnt[n]||0)+1;});
+out.dupNames=Object.keys(cnt).filter(n=>cnt[n]>1);
 return out;
 }
 // 画面上の警告（印刷前に気づけるように）
@@ -1754,11 +1774,58 @@ const el=document.getElementById('cond-warn'); if(!el) return;
 const people=history.filter(h=>h.sel!==false);
 if(people.length<2){el.classList.remove('show');return;}
 const c=condCheck(people);
-if(!c.anyDiff){el.classList.remove('show');return;}
-el.innerHTML='<strong>⚠ 対象者で共通条件が揃っていません：'+c.diffLabels.map(esc).join('・')
-  +'</strong><br>報告書の【共通条件】には「人により異なります」と出力されます。'
-  +'同じ条件で出したい場合は、条件を揃えて各人を保存し直してください。';
+if(!c.anyDiff && !c.dupNames.length){el.classList.remove('show');return;}
+let html='';
+if(c.anyDiff){
+  html+='<strong>⚠ 報告書の対象者で共通条件が揃っていません</strong>';
+  COND_FIELDS.filter(f=>!c[f.key].same).forEach(f=>{
+    html+='<div style="margin-top:6px"><b>'+esc(f.label)+'</b><br>'
+      +c[f.key].breakdown.map(g=>'・'+esc(g.short)+'：'+g.names.map(esc).join('、')+'（'+g.names.length+'名）').join('<br>')+'</div>';
+  });
+  html+='<div style="margin-top:8px">履歴は<b>保存した時点の条件</b>で計算されています。上の設定を変えただけでは、保存済みの人には反映されません。</div>'
+    +'<button class="mini-btn" type="button" onclick="alignConditions()" style="margin-top:8px">今の共通条件で、対象者全員を再計算して揃える</button>';
+}
+if(c.dupNames.length){
+  html+=(html?'<div style="margin-top:10px">':'<div>')+'<strong>⚠ 同じ氏名が複数あります：'+c.dupNames.map(esc).join('、')
+    +'</strong><br>上書きせずに追加された古い行が残っている可能性があります。不要な行は×で削除するか、チェックを外してください。</div>';
+}
+el.innerHTML=html;
 el.classList.add('show');
+}
+// 対象者全員を「今の共通条件」で再計算して上書きする
+function alignConditions(){
+const idx=history.map((h,i)=>h.sel!==false?i:-1).filter(i=>i>=0);
+if(idx.length<1) return;
+const g=id=>document.getElementById(id).value;
+const tgt={hours:g('monthly-hours'),rate:g('premium-rate'),minWage:g('min-wage'),rounding:g('rounding')};
+const rl=ROUND_SHORT[tgt.rounding]||'行わない';
+if(!confirm('報告書の対象 '+idx.length+'名を、今の共通条件で再計算して上書きします。\n\n'
+  +'月間平均労働時間 '+tgt.hours+'時間／割増率 '+tgt.rate+'／最低賃金 '+tgt.minWage+'円／端数処理 '+rl+'\n\n'
+  +'各人の計算モードと入力値（総額・基本給・時間など）はそのままで、結果だけが変わります。よろしいですか？')) return;
+const changes=[], fails=[];
+const now=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+idx.forEach(i=>{
+  const h=history[i];
+  loadHistory(i);
+  document.getElementById('monthly-hours').value=tgt.hours;
+  document.getElementById('premium-rate').value=tgt.rate;
+  document.getElementById('min-wage').value=tgt.minWage;
+  document.getElementById('rounding').value=tgt.rounding;
+  formatAllYen(); calc();
+  if(!state.calcBase){fails.push(h.name||'（氏名未入力）');return;}
+  const d=[];
+  if(Math.round(h.baseVal)!==state.baseVal) d.push('基本給 '+fmtNum(h.baseVal)+'→'+fmtNum(state.baseVal)+'円');
+  if(Math.round(h.otAmount)!==state.otAmount) d.push('固定残業代 '+fmtNum(h.otAmount)+'→'+fmtNum(state.otAmount)+'円');
+  if(r1(h.otHours)!==r1(state.otHours)) d.push('★固定残業時間 '+r1(h.otHours)+'→'+r1(state.otHours)+'時間');
+  if(state.minOk===false) d.push('★最低賃金NG');
+  if(d.length) changes.push((h.name||'（氏名未入力）')+'：'+d.join('／'));
+  history[i]={...state,sel:true,name:h.name,staff:h.staff,company:h.company,savedAt:now};
+});
+renderHistory(); persist();
+alert('再計算して揃えました（'+(idx.length-fails.length)+'名）。\n\n'
+  +(changes.length?'【変わった人】\n'+changes.join('\n'):'数値が変わった人はいません。')
+  +(fails.length?'\n\n【計算できなかった人】\n'+fails.join('、'):'')
+  +'\n\n★の付いた人は、内容を確認してから報告書を出してください。');
 }
 
 // ===== 1ページ目：共通条件＋対象者一覧サマリー =====
@@ -1835,7 +1902,7 @@ ${subtitle?`<div class="rp-subtitle">${esc(subtitle)}</div>`:''}
 <div class="rp-meta"><span>${company?'会社名：'+esc(company):''}</span><span>作成日：${dateStr}${staff?'　担当：'+esc(staff):''}</span></div>
 <p class="rp-label">【共通条件】</p>
 <table class="rp"><colgroup><col style="width:30%"><col></colgroup>
-${COND_FIELDS.map(c=>`<tr><td class="rp-lbl">${c.label}</td><td${cond[c.key].same?'':' class="rp-redb"'}>${cond[c.key].text}</td></tr>`).join('')}
+${COND_FIELDS.map(c=>`<tr><td class="rp-lbl">${c.label}</td><td>${cond[c.key].same?cond[c.key].text:`<span class="rp-redb">${cond[c.key].text}</span><div class="rp-note" style="margin-top:3px">${cond[c.key].breakdown.map(g=>esc(g.value)+'：'+g.names.map(esc).join('、')).join('<br>')}</div>`}</td></tr>`).join('')}
 ${cmp?`<tr><td class="rp-lbl">変更前　固定残業時間</td><td>${bhTxt}</td></tr>`:''}
 ${policy?`<tr><td class="rp-lbl">設計方針</td><td>${esc(policy)}</td></tr>`:''}
 </table>
