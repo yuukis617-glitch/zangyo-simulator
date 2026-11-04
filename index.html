@@ -933,6 +933,15 @@ if(m==='sen50') return Math.round(v);          // 50銭未満切捨て・50銭�
 if(m==='up') return Math.ceil(v);              // 円未満切上げ
 return Math.round(v*10)/10;                    // 丸めなし（小数第1位まで保持）
 }
+// 総額（除外手当を除く）net を固定し、h時間分を必ず満たす最小の固定残業代を返す。
+// 固定残業代を増やすほど計算基礎が減り単価は下がる（単調）ので二分探索で決まる。
+function minCoverOt(net,h,mh,rate){
+if(!(h>0)||!(net>0)) return 0;
+const need=oa=>{const pr=RU(RU((net-oa)/mh)*rate); return Math.ceil(pr*h-1e-9);};
+let lo=0, hi=Math.ceil(net);
+while(lo<hi){const mid=Math.floor((lo+hi)/2); if(mid>=need(mid)) hi=mid; else lo=mid+1;}
+return lo;
+}
 const ROUND_LABEL={none:'',sen50:'50銭未満切捨て・50銭以上1円切上げ（昭63.3.14 基発150号）',up:'円未満切上げ'};
 const ROUND_SHORT={none:'',sen50:'50銭ルール',up:'円未満切上げ'};
 function fmt(n){return fmtNum(n)+'円';}
@@ -1009,22 +1018,16 @@ totalWage=parseFloat(NV(document.getElementById('total-wage').value))||0;
 otHours=parseFloat(NV(document.getElementById('ot-hours').value))||0;
 const exclTotal=excluded.reduce((a,b)=>a+b.v,0);
 const netTotal=totalWage-exclTotal;
-const factor=1+(rate*otHours/hours);
-calcBase=netTotal/factor;
-// 端数処理を入れると「基本給＋手当＋残業代＝総額」が崩れるので収束計算する
-for(let i=0;i<10;i++){
-  const h=RU(calcBase/hours), pr=RU(h*rate);
-  const oa=Math.ceil(pr*otHours);   // 表示した時間数を確実にカバーするため切り上げ
-  const ncb=netTotal-oa;
-  if(Math.abs(ncb-calcBase)<0.5){calcBase=ncb;break;}
-  calcBase=ncb;
-}
+// 端数処理を入れると単価が階段状に動くため、反復計算では振動して
+// 「表示する計算基礎」と「単価を出した計算基礎」がズレることがあった（11/4 判明）。
+// → 総額を固定したまま「固定残業時間分を必ず満たす最小の固定残業代」を二分探索で求め、
+//   最終的な計算基礎から単価を出し直す。
+otAmount=minCoverOt(netTotal,otHours,hours,rate);
+calcBase=netTotal-otAmount;          // 基本給＋手当＋残業代＝総額 を厳密に一致させる
 hourlyRaw=calcBase/hours;
 hourly=RU(hourlyRaw);
 premiumRaw=hourly*rate;
 premium=RU(premiumRaw);
-otAmount=Math.ceil(premium*otHours);   // 切り上げ：17,670.6円→17,671円
-calcBase=netTotal-otAmount;          // 基本給＋手当＋残業代＝総額 を厳密に一致させる
 baseVal=calcBase-allowTotal;
 results+=setMetric('','基本給',fmt(Math.round(baseVal)),'accent found');
 results+=setMetric('','固定残業代',fmt(Math.round(otAmount)),'accent found');
@@ -1279,15 +1282,9 @@ setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
 // 総額T・除外手当Eのもとで、固定残業h時間分の固定残業代を求める（端数処理と100円単位の切り上げを反映）
 function choiceF(T,E,h,mh,rate,line){
 if(h<=0) return 0;
-let F=(h*rate*(T-E)/mh)/(1+h*rate/mh);
-for(let i=0;i<10;i++){
-  const B=T-E-F, hh=RU(B/mh), pr=RU(hh*rate), nF=Math.ceil(pr*h);
-  if(Math.abs(nF-F)<0.5){F=nF;break;}
-  F=nF;
-}
-F=Math.ceil(F/100)*100;                      // 契約書に書きやすい100円単位へ切り上げ
-while(F>0 && (T-E-F)<line) F-=100;           // 切り上げで最賃を割ったら1段戻す
-return F;
+const Fmin=minCoverOt(T-E,h,mh,rate);        // h時間分を満たす最小額
+const F100=Math.ceil(Fmin/100)*100;          // 契約書に書きやすい100円単位へ切り上げ（単価は下がる方向なので時間は満たす）
+return ((T-E-F100)>=line)?F100:Fmin;         // 切り上げで最賃を割るなら、切り上げ前の額を使う
 }
 
 function renderChoice(init){
@@ -1959,16 +1956,25 @@ ${body}
 const rl=ROUND_SHORT[p.rounding||'none'];
 const hr=(p.hourlyRaw==null)?p.hourly:p.hourlyRaw;
 const pr=(p.premiumRaw==null)?p.premium:p.premiumRaw;
-const hRow=rl?`${fmtNum(p.calcBase)}円 ÷ ${r1(p.hours)}時間 ＝ ${fmtU(hr)}円　→　${fmtU(p.hourly)}円（${rl}）`
+// 丸め前の値は小数第2位で切り捨て表示（1,283.497 を「1,283.5」と出すと、50銭ルールで切り上がるように見えてしまうため）
+const rawU=n=>(Math.floor(n*100+1e-6)/100).toLocaleString('ja-JP',{minimumFractionDigits:2,maximumFractionDigits:2});
+const hRaw=(p.calcBase&&p.hours)?p.calcBase/p.hours:hr, pRaw=p.hourly*p.rate;
+const hRow=rl?`${fmtNum(p.calcBase)}円 ÷ ${r1(p.hours)}時間 ＝ ${rawU(hRaw)}円　→　${fmtU(p.hourly)}円（${rl}）`
              :`${fmtNum(p.calcBase)}円 ÷ ${r1(p.hours)}時間 ＝ ${fmtU(p.hourly)}円`;
-const pRow=rl?`${fmtU(p.hourly)}円 × ${p.rate} ＝ ${fmtU(pr)}円　→　${fmtU(p.premium)}円（${rl}）`
+const pRow=rl?`${fmtU(p.hourly)}円 × ${p.rate} ＝ ${rawU(pRaw)}円　→　${fmtU(p.premium)}円（${rl}）`
              :`${fmtU(p.hourly)}円 × ${p.rate} ＝ ${fmtU(p.premium)}円`;
 const fp=[nw(fmtNum(p.baseVal)+'円（基本給）')].concat((p.parts||[]).map(x=>nw(fmtNum(x.v)+'円（'+esc(x.name)+'）')));
 const backCalc=(p.mode==='B'||p.mode==='D');
 const lastLabel=backCalc?'固定残業時間数':'固定残業代';
 const lastVal=backCalc
   ? `${fmtNum(p.otAmount)}円 ÷ ${fmtU(p.premium)}円 ＝ ${p.premium>0?r1(p.otAmount/p.premium):0}時間　→　切捨て ${Math.floor(p.otHours)}時間`
-  : `${fmtU(p.premium)}円 × ${r1(p.otHours)}時間 ＝ ${fmtNum(p.otAmount)}円`;
+  : (()=>{
+      const exact=Math.ceil(p.premium*p.otHours-1e-9);
+      // 総額固定（モードC）で単価の境目にあたると、ちょうどの額にできず数十円上回ることがある
+      if(p.mode==='C' && p.otAmount-exact>=1)
+        return `${fmtU(p.premium)}円 × ${r1(p.otHours)}時間 ＝ ${fmtNum(exact)}円　→　${fmtNum(p.otAmount)}円（${r1(p.otHours)}時間分を満たすよう端数調整）`;
+      return `${fmtU(p.premium)}円 × ${r1(p.otHours)}時間 ＝ ${fmtNum(p.otAmount)}円`;
+    })();
  
 // ③ 適法性確認
 const hState=p.hOk?(p.hWarn?'注意':'OK'):'NG';
