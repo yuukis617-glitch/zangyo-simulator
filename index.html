@@ -547,6 +547,7 @@ table.rp td{ border:0.5pt solid #B8C4DA; padding:5px 8px; vertical-align:middle;
 <div class="card">
 <p class="card-title" style="margin-bottom:10px">計算履歴</p>
 <p class="card-note">チェックを入れた人が報告書に出力されます（履歴が空のときは現在の入力1名分）。この端末に自動保存されます。</p>
+<div class="sanity-warn" id="cond-warn" style="margin-top:10px"></div>
 <div id="history-list"><p class="history-empty">履歴がありません</p></div>
 <button class="clear-btn" onclick="clearHistory()" id="clear-hist" style="display:none">履歴をすべて削除</button>
 </div>
@@ -1598,6 +1599,7 @@ function renderHistory(){
 const el=document.getElementById('history-list');
 const clr=document.getElementById('clear-hist');
 if(clr) clr.style.display=history.length?'block':'none';
+renderCondWarn();
 if(history.length===0){el.innerHTML='<p class="history-empty">履歴がありません</p>';return;}
 const modeLabel={'A':'順算','B':'逆算','C':'総額逆算①','D':'総額逆算②'};
 el.innerHTML=history.map((h,i)=>`
@@ -1727,9 +1729,42 @@ return people.some(p=>{
 });
 }
  
+// ===== 共通条件が全員で揃っているかの判定 =====
+// 揃っていない項目は【共通条件】に「人により異なります」と出し、画面にも警告を出す。
+const COND_FIELDS=[
+ {key:'hours',   label:'月間平均労働時間', fmt:v=>r1(v)+'時間'},
+ {key:'rate',    label:'割増率',           fmt:v=>v+'（法定割増率）'},
+ {key:'minWage', label:'最低賃金',         fmt:v=>fmtNum(v)+'円'},
+ {key:'rounding',label:'円未満の端数処理', fmt:v=>ROUND_LABEL[v||'none']||'行わない（小数のまま計算）'}
+];
+function condCheck(people){
+const out={};
+COND_FIELDS.forEach(c=>{
+  const vals=[...new Set(people.map(p=>String(p[c.key]===undefined||p[c.key]===null?'':p[c.key])))];
+  out[c.key]={same:vals.length<=1, label:c.label,
+              text:(vals.length<=1)?c.fmt(people[0][c.key]):'人により異なります（各ページの数値をご確認ください）'};
+});
+out.anyDiff=COND_FIELDS.some(c=>!out[c.key].same);
+out.diffLabels=COND_FIELDS.filter(c=>!out[c.key].same).map(c=>c.label);
+return out;
+}
+// 画面上の警告（印刷前に気づけるように）
+function renderCondWarn(){
+const el=document.getElementById('cond-warn'); if(!el) return;
+const people=history.filter(h=>h.sel!==false);
+if(people.length<2){el.classList.remove('show');return;}
+const c=condCheck(people);
+if(!c.anyDiff){el.classList.remove('show');return;}
+el.innerHTML='<strong>⚠ 対象者で共通条件が揃っていません：'+c.diffLabels.map(esc).join('・')
+  +'</strong><br>報告書の【共通条件】には「人により異なります」と出力されます。'
+  +'同じ条件で出したい場合は、条件を揃えて各人を保存し直してください。';
+el.classList.add('show');
+}
+
 // ===== 1ページ目：共通条件＋対象者一覧サマリー =====
 function rpSummaryPage(people,pageNo,cmp){
 const f=people[0];
+const cond=condCheck(people);
 // 新規設計（変更なし）のときは「変更前提」のデフォルト文言を出さない
 const DEF_SUB='技術手当賃上げ分の固定残業代振替・固定残業時間数最大化';
 const DEF_POL='技術手当の賃上げ分を固定残業代へ振替し、固定残業時間を最大化（上限45時間・最低賃金遵守）';
@@ -1800,10 +1835,7 @@ ${subtitle?`<div class="rp-subtitle">${esc(subtitle)}</div>`:''}
 <div class="rp-meta"><span>${company?'会社名：'+esc(company):''}</span><span>作成日：${dateStr}${staff?'　担当：'+esc(staff):''}</span></div>
 <p class="rp-label">【共通条件】</p>
 <table class="rp"><colgroup><col style="width:30%"><col></colgroup>
-<tr><td class="rp-lbl">月間平均労働時間</td><td>${r1(f.hours)}時間</td></tr>
-<tr><td class="rp-lbl">割増率</td><td>${f.rate}（法定割増率）</td></tr>
-<tr><td class="rp-lbl">最低賃金</td><td>${fmtNum(f.minWage)}円</td></tr>
-<tr><td class="rp-lbl">円未満の端数処理</td><td>${rlabel||'行わない（小数のまま計算）'}</td></tr>
+${COND_FIELDS.map(c=>`<tr><td class="rp-lbl">${c.label}</td><td${cond[c.key].same?'':' class="rp-redb"'}>${cond[c.key].text}</td></tr>`).join('')}
 ${cmp?`<tr><td class="rp-lbl">変更前　固定残業時間</td><td>${bhTxt}</td></tr>`:''}
 ${policy?`<tr><td class="rp-lbl">設計方針</td><td>${esc(policy)}</td></tr>`:''}
 </table>
@@ -1886,6 +1918,7 @@ ${table1}
 <tr><td class="rp-lbl">割増賃金単価</td><td>${pRow}</td></tr>
 <tr><td class="rp-lbl">${lastLabel}</td><td class="rp-redb">${lastVal}</td></tr>
 </table>
+<div class="rp-note">適用条件：月間平均労働時間 ${r1(p.hours)}時間 ／ 割増率 ${p.rate} ／ 最低賃金 ${fmtNum(p.minWage)}円 ／ 端数処理 ${ROUND_SHORT[p.rounding||'none']||'行わない（小数のまま計算）'}</div>
 <p class="rp-sub">③ 適法性確認</p>
 <table class="rp"><colgroup><col style="width:25%"><col><col style="width:14%"></colgroup>
 <tr><td class="rp-lbl">最低賃金（${fmtNum(p.minWage)}円）</td><td>時間単価 ${fmtU(p.hourly)}円　差額 ${p.diff>=0?'+'+fmtNum(p.diff):'▲'+fmtNum(Math.abs(p.diff))}円</td>
