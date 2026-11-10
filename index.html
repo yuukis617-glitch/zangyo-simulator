@@ -1703,6 +1703,11 @@ persist();
 // =========================================================
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function r1(n){return Math.round(n*10)/10;}
+// 入力された時間数（月平均所定・固定残業時間）は丸めずにそのまま表示する（163.28 を 163.3 にしない）
+function h4(n){return Math.round(Number(n)*10000)/10000;}
+function fmtH(n){return isFinite(Number(n))?h4(n).toLocaleString('ja-JP',{maximumFractionDigits:4}):'－';}
+// 割り算の結果の時間数は小数第2位で切り捨てて表示（32.998 を「33.0」と出すと切捨て後の32と矛盾するため）
+function fmtQ(n){return (Math.floor(Number(n)*100+1e-6)/100).toLocaleString('ja-JP',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function nw(t){return '<span style="white-space:nowrap">'+t+'</span>';}
  
 // 増減セル（0なら「－」、増は+、減は▲）
@@ -1726,7 +1731,7 @@ return people.some(p=>{
   const b=p.before; if(!b) return false;
   return Math.round(b.base)!==Math.round(p.baseVal)
       || Math.round(b.otAmount)!==Math.round(p.otAmount)
-      || r1(b.otHours)!==r1(p.otHours)
+      || h4(b.otHours)!==h4(p.otHours)
       || (b.allowances||[]).some(a=>Math.round(a.before)!==Math.round(a.after));
 });
 }
@@ -1734,7 +1739,7 @@ return people.some(p=>{
 // ===== 共通条件が全員で揃っているかの判定 =====
 // 揃っていない項目は【共通条件】に「人により異なります」と出し、画面にも警告を出す。
 const COND_FIELDS=[
- {key:'hours',   label:'月間平均労働時間', fmt:v=>r1(v)+'時間'},
+ {key:'hours',   label:'月間平均労働時間', fmt:v=>fmtH(v)+'時間'},
  {key:'rate',    label:'割増率',           fmt:v=>v+'（法定割増率）'},
  {key:'minWage', label:'最低賃金',         fmt:v=>fmtNum(v)+'円'},
  {key:'rounding',label:'円未満の端数処理', fmt:v=>ROUND_LABEL[v||'none']||'行わない（小数のまま計算）'}
@@ -1744,7 +1749,7 @@ if(key==='rounding') return (v===undefined||v===null||v==='')?'none':String(v); 
 const n=Number(String(v==null?'':v).replace(/[^\d.\-]/g,''));
 if(!isFinite(n)) return '';
 if(key==='minWage') return String(Math.round(n));
-if(key==='hours')   return String(Math.round(n*100)/100);
+if(key==='hours')   return String(Math.round(n*10000)/10000);
 return String(Math.round(n*10000)/10000);
 }
 function condCheck(people){
@@ -1843,7 +1848,7 @@ idx.forEach(i=>{
   const d=[];
   if(Math.round(h.baseVal)!==state.baseVal) d.push('基本給 '+fmtNum(h.baseVal)+'→'+fmtNum(state.baseVal)+'円');
   if(Math.round(h.otAmount)!==state.otAmount) d.push('固定残業代 '+fmtNum(h.otAmount)+'→'+fmtNum(state.otAmount)+'円');
-  if(r1(h.otHours)!==r1(state.otHours)) d.push('★固定残業時間 '+r1(h.otHours)+'→'+r1(state.otHours)+'時間');
+  if(h4(h.otHours)!==h4(state.otHours)) d.push('★固定残業時間 '+fmtH(h.otHours)+'→'+fmtH(state.otHours)+'時間');
   if(state.minOk===false) d.push('★最低賃金NG');
   if(d.length) changes.push((h.name||'（氏名未入力）')+'：'+d.join('／'));
   history[i]={...state,sel:true,name:h.name,staff:h.staff,company:h.company,savedAt:now};
@@ -1875,7 +1880,7 @@ const dateStr=today.getFullYear()+'年'+(today.getMonth()+1)+'月'+today.getDate
 const rlabel=ROUND_LABEL[f.rounding||'none'];
  
 // 変更前 固定残業時間（全員共通か）
-const bh=[...new Set(people.map(p=>p.before?r1(p.before.otHours):r1(p.otHours)))];
+const bh=[...new Set(people.map(p=>p.before?h4(p.before.otHours):h4(p.otHours)))];
 const bhTxt=(bh.length===1)?(bh[0]+'時間（全員共通）'):'個人別（下表参照）';
  
 // 変わった手当の名称を集計（1種類ならその名前を列見出しに使う）
@@ -1906,7 +1911,7 @@ if(cmp){
 <td class="rp-num${alt}">${fmtNum(b.raise||0)}円</td>
 <td class="rp-ctr${alt}">${allowCell(p)}</td>
 <td class="rp-ctr${alt}">${nw(fmtNum(b.otAmount)+'円→'+fmtNum(p.otAmount)+'円')}</td>
-<td class="rp-ctr${alt} rp-navy">${nw(r1(b.otHours)+'時間→'+r1(p.otHours)+'時間')}</td>
+<td class="rp-ctr${alt} rp-navy">${nw(fmtH(b.otHours)+'時間→'+fmtH(p.otHours)+'時間')}</td>
 <td class="rp-num${alt}">${totalCell(p)}</td></tr>`;
   }).join('');
 }else{
@@ -1921,7 +1926,7 @@ if(cmp){
 <td class="rp-num${alt}">${fmtNum(p.baseVal)}円</td>
 <td class="rp-num${alt}">${fmtNum(allowSum)}円</td>
 <td class="rp-num${alt}">${fmtNum(p.otAmount)}円</td>
-<td class="rp-ctr${alt} rp-navy">${r1(p.otHours)}時間</td>
+<td class="rp-ctr${alt} rp-navy">${fmtH(p.otHours)}時間</td>
 <td class="rp-num${alt}">${fmtNum(p.totalWage)}円</td></tr>`;
   }).join('');
 }
@@ -1992,21 +1997,21 @@ const pr=(p.premiumRaw==null)?p.premium:p.premiumRaw;
 // 丸め前の値は小数第2位で切り捨て表示（1,283.497 を「1,283.5」と出すと、50銭ルールで切り上がるように見えてしまうため）
 const rawU=n=>(Math.floor(n*100+1e-6)/100).toLocaleString('ja-JP',{minimumFractionDigits:2,maximumFractionDigits:2});
 const hRaw=(p.calcBase&&p.hours)?p.calcBase/p.hours:hr, pRaw=p.hourly*p.rate;
-const hRow=rl?`${fmtNum(p.calcBase)}円 ÷ ${r1(p.hours)}時間 ＝ ${rawU(hRaw)}円　→　${fmtU(p.hourly)}円（${rl}）`
-             :`${fmtNum(p.calcBase)}円 ÷ ${r1(p.hours)}時間 ＝ ${fmtU(p.hourly)}円`;
+const hRow=rl?`${fmtNum(p.calcBase)}円 ÷ ${fmtH(p.hours)}時間 ＝ ${rawU(hRaw)}円　→　${fmtU(p.hourly)}円（${rl}）`
+             :`${fmtNum(p.calcBase)}円 ÷ ${fmtH(p.hours)}時間 ＝ ${fmtU(p.hourly)}円`;
 const pRow=rl?`${fmtU(p.hourly)}円 × ${p.rate} ＝ ${rawU(pRaw)}円　→　${fmtU(p.premium)}円（${rl}）`
              :`${fmtU(p.hourly)}円 × ${p.rate} ＝ ${fmtU(p.premium)}円`;
 const fp=[nw(fmtNum(p.baseVal)+'円（基本給）')].concat((p.parts||[]).map(x=>nw(fmtNum(x.v)+'円（'+esc(x.name)+'）')));
 const backCalc=(p.mode==='B'||p.mode==='D');
 const lastLabel=backCalc?'固定残業時間数':'固定残業代';
 const lastVal=backCalc
-  ? `${fmtNum(p.otAmount)}円 ÷ ${fmtU(p.premium)}円 ＝ ${p.premium>0?r1(p.otAmount/p.premium):0}時間　→　切捨て ${Math.floor(p.otHours)}時間`
+  ? `${fmtNum(p.otAmount)}円 ÷ ${fmtU(p.premium)}円 ＝ ${p.premium>0?fmtQ(p.otAmount/p.premium):0}時間　→　切捨て ${Math.floor(p.otHours)}時間`
   : (()=>{
       const exact=Math.ceil(p.premium*p.otHours-1e-9);
       // 総額固定（モードC）で単価の境目にあたると、ちょうどの額にできず数十円上回ることがある
       if(p.mode==='C' && p.otAmount-exact>=1)
-        return `${fmtU(p.premium)}円 × ${r1(p.otHours)}時間 ＝ ${fmtNum(exact)}円　→　${fmtNum(p.otAmount)}円（${r1(p.otHours)}時間分を満たすよう端数調整）`;
-      return `${fmtU(p.premium)}円 × ${r1(p.otHours)}時間 ＝ ${fmtNum(p.otAmount)}円`;
+        return `${fmtU(p.premium)}円 × ${fmtH(p.otHours)}時間 ＝ ${fmtNum(exact)}円　→　${fmtNum(p.otAmount)}円（${fmtH(p.otHours)}時間分を満たすよう端数調整）`;
+      return `${fmtU(p.premium)}円 × ${fmtH(p.otHours)}時間 ＝ ${fmtNum(p.otAmount)}円`;
     })();
  
 // ③ 適法性確認
@@ -2024,12 +2029,12 @@ ${table1}
 <tr><td class="rp-lbl">割増賃金単価</td><td>${pRow}</td></tr>
 <tr><td class="rp-lbl">${lastLabel}</td><td class="rp-redb">${lastVal}</td></tr>
 </table>
-<div class="rp-note">適用条件：月間平均労働時間 ${r1(p.hours)}時間 ／ 割増率 ${p.rate} ／ 最低賃金 ${fmtNum(p.minWage)}円 ／ 端数処理 ${ROUND_SHORT[p.rounding||'none']||'行わない（小数のまま計算）'}</div>
+<div class="rp-note">適用条件：月間平均労働時間 ${fmtH(p.hours)}時間 ／ 割増率 ${p.rate} ／ 最低賃金 ${fmtNum(p.minWage)}円 ／ 端数処理 ${ROUND_SHORT[p.rounding||'none']||'行わない（小数のまま計算）'}</div>
 <p class="rp-sub">③ 適法性確認</p>
 <table class="rp"><colgroup><col style="width:25%"><col><col style="width:14%"></colgroup>
 <tr><td class="rp-lbl">最低賃金（${fmtNum(p.minWage)}円）</td><td>時間単価 ${fmtU(p.hourly)}円　差額 ${p.diff>=0?'+'+fmtNum(p.diff):'▲'+fmtNum(Math.abs(p.diff))}円</td>
 <td class="rp-ctr ${p.minOk?'rp-badge-ok':'rp-badge-ng'}">${p.minOk?'OK':'NG'}</td></tr>
-<tr><td class="rp-lbl">時間外上限（45時間）</td><td>固定残業時間 ${r1(p.otHours)}時間${p.hWarn?'　※原則上限45時間に近い設計です':''}</td>
+<tr><td class="rp-lbl">時間外上限（45時間）</td><td>固定残業時間 ${fmtH(p.otHours)}時間${p.hWarn?'　※原則上限45時間に近い設計です':''}</td>
 <td class="rp-ctr ${hCls}">${hState}</td></tr>
 </table>`;
 return rpPage(inner,pageNo,cmp?RP_RUNHEAD_A:RP_RUNHEAD_B);
